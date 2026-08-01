@@ -12,22 +12,62 @@ datasource db {
   provider = "sqlite"
 }
 
+enum Sex {
+  MALE
+  FEMALE
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+}
+
+enum DietType {
+  VEGETARIAN
+  NON_VEGETARIAN
+  EGGETARIAN
+}
+
+enum Goal {
+  LOSE
+  MAINTAIN
+  GAIN
+}
+
+enum Meal {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACKS
+}
+
 model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
-  name      String?
-  createdAt DateTime   @default(now())
-  entries   FoodEntry[]
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  age           Int?
+  sex           Sex?
+  heightCm      Float?
+  weightKg      Float?
+  activityLevel ActivityLevel?
+  dietType      DietType?
+  goal          Goal?
+  createdAt     DateTime       @default(now())
+  entries       FoodEntry[]
 }
 
 model FoodItem {
-  id            String      @id @default(cuid())
-  name          String
+  id              String      @id @default(cuid())
+  name            String      @unique
   caloriesPer100g Float
   proteinPer100g  Float
   carbsPer100g    Float
   fatPer100g      Float
-  entries       FoodEntry[]
+  servingSizeG    Float        @default(100)
+  servingLabel    String
+  entries         FoodEntry[]
 }
 
 model FoodEntry {
@@ -37,5 +77,6 @@ model FoodEntry {
   foodItem   FoodItem @relation(fields: [foodItemId], references: [id])
   foodItemId String
   grams      Float
+  meal       Meal     @default(BREAKFAST)
   consumedAt DateTime @default(now())
 }
