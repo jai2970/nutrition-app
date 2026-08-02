@@ -49,3 +49,18 @@ export async function addFoodEntry(
 
   return { status: "success", message: `Added ${foodItem.name} to your log.` };
 }
+
+export async function deleteFoodEntry(formData: FormData) {
+  const entryId = String(formData.get("entryId") ?? "");
+  if (!entryId) return;
+
+  const user = await getCurrentUser();
+
+  // Scoping the delete to the current user's own entries means a forged
+  // entryId for someone else's entry just deletes nothing, rather than
+  // requiring a separate ownership check before deleting.
+  await prisma.foodEntry.deleteMany({ where: { id: entryId, userId: user.id } });
+
+  revalidatePath("/log");
+  revalidatePath("/dashboard");
+}
