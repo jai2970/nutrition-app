@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { getTodayRange } from "@/lib/nutrition";
 import { Meal } from "@/generated/prisma/enums";
 import FoodLogClient from "./FoodLogClient";
+import { deleteFoodEntry } from "./actions";
 
 const MEAL_ORDER: Meal[] = ["BREAKFAST", "LUNCH", "DINNER", "SNACKS"];
 const MEAL_LABELS: Record<Meal, string> = {
@@ -72,7 +73,7 @@ export default async function FoodLogPage() {
                   {entries.map((entry) => (
                     <li
                       key={entry.id}
-                      className="flex justify-between text-sm rounded-lg bg-black/[.03] dark:bg-white/[.06] px-3 py-2"
+                      className="flex items-center justify-between gap-3 text-sm rounded-lg bg-black/[.03] dark:bg-white/[.06] px-3 py-2"
                     >
                       <span>
                         {entry.foodItem.name}{" "}
@@ -80,10 +81,22 @@ export default async function FoodLogPage() {
                           ({Math.round(entry.grams)}g)
                         </span>
                       </span>
-                      <span className="text-zinc-500 dark:text-zinc-400">
-                        {Math.round((entry.foodItem.caloriesPer100g * entry.grams) / 100)}{" "}
-                        kcal
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-zinc-500 dark:text-zinc-400">
+                          {Math.round((entry.foodItem.caloriesPer100g * entry.grams) / 100)}{" "}
+                          kcal
+                        </span>
+                        <form action={deleteFoodEntry}>
+                          <input type="hidden" name="entryId" value={entry.id} />
+                          <button
+                            type="submit"
+                            className="text-zinc-500 dark:text-zinc-400 hover:opacity-70"
+                            aria-label={`Remove ${entry.foodItem.name}`}
+                          >
+                            ✕
+                          </button>
+                        </form>
+                      </div>
                     </li>
                   ))}
                 </ul>

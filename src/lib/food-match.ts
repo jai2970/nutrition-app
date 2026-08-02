@@ -38,20 +38,34 @@ export function findBestFoodMatch<T extends { name: string }>(
   for (const food of foods) {
     const normalizedName = normalizeFoodName(food.name);
     const normalizedAlias = normalizeFoodName(extractParenAliases(food.name));
-    const searchableText = [normalizedName, normalizedAlias].filter(Boolean).join(" ");
 
-    if (normalizedName === normalizedQuery || normalizedAlias === normalizedQuery) {
+    if (normalizedName === normalizedQuery) {
       return food;
     }
 
-    const nameWords = new Set(searchableText.split(" ").filter(Boolean));
+    // A parenthetical alias (e.g. "Curd (dahi)", "Mixed vegetable curry
+    // (sabzi)") is trusted only when every word in the query is covered by
+    // the alias — not via loose word-bag overlap against the primary name.
+    // Aliases are often a single descriptive word (e.g. "raw" in "Paneer
+    // (raw)"), and folding that into general overlap scoring let an
+    // unrelated longer query that merely contains the same word ("raw
+    // onion") falsely win a match against "Paneer (raw)".
+    if (normalizedAlias) {
+      const aliasWords = new Set(normalizedAlias.split(" ").filter(Boolean));
+      const queryCoveredByAlias = [...queryWords].every((w) => aliasWords.has(w));
+      if (queryCoveredByAlias) {
+        return food;
+      }
+    }
+
+    const nameWords = new Set(normalizedName.split(" ").filter(Boolean));
     let overlap = 0;
     for (const word of queryWords) {
       if (nameWords.has(word)) overlap++;
     }
 
     let score = overlap;
-    if (searchableText.includes(normalizedQuery) || normalizedQuery.includes(normalizedName)) {
+    if (normalizedName.includes(normalizedQuery) || normalizedQuery.includes(normalizedName)) {
       score += 1;
     }
 
