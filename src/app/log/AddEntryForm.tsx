@@ -29,7 +29,11 @@ export default function AddEntryForm({
   searchSeed?: { name: string; ts: number } | null;
 }) {
   const [state, formAction, pending] = useActionState(addFoodEntry, initialState);
-  const [query, setQuery] = useState("");
+  // Now that this form only mounts when the "Manual search" tab is active, it
+  // can be born already holding a searchSeed (handed off from an unmatched AI
+  // result) rather than always starting empty and receiving one later — so
+  // the initial query has to seed from it directly, not just "".
+  const [query, setQuery] = useState(searchSeed?.name ?? "");
   const [selectedFood, setSelectedFood] = useState<FoodOption | null>(null);
   const [grams, setGrams] = useState<number | "">("");
   const [meal, setMeal] = useState<Meal>("BREAKFAST");
@@ -50,7 +54,7 @@ export default function AddEntryForm({
     }
   }
 
-  // Same idea for an incoming "search manually" handoff from SmartLogForm: apply
+  // Same idea for an incoming "search manually" handoff from the AI tabs: apply
   // the new query during render, keyed off searchSeed.ts so a repeat click on the
   // same food still re-triggers it.
   const [lastHandledSeedTs, setLastHandledSeedTs] = useState(searchSeed?.ts);
@@ -91,11 +95,12 @@ export default function AddEntryForm({
     <form ref={formRef} action={formAction} className="flex flex-col gap-4">
       {state.status !== "idle" && (
         <div
-          className={`rounded-lg px-4 py-2 text-sm ${
+          className="rounded-lg px-4 py-2 text-sm font-medium"
+          style={
             state.status === "success"
-              ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400"
-              : "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400"
-          }`}
+              ? { background: "var(--success-soft)", color: "var(--success-ink)" }
+              : { background: "var(--primary-soft)", color: "var(--primary-ink)" }
+          }
         >
           {state.message}
         </div>
@@ -105,9 +110,7 @@ export default function AddEntryForm({
 
       <div className="relative">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">
-            Search food
-          </span>
+          <span className="font-medium text-muted">Search food</span>
           <input
             ref={searchInputRef}
             type="text"
@@ -123,18 +126,16 @@ export default function AddEntryForm({
         </label>
 
         {suggestions.length > 0 && (
-          <ul className="absolute z-10 mt-1 w-full rounded-lg border border-black/[.08] dark:border-white/[.145] bg-background shadow-lg max-h-64 overflow-y-auto">
+          <ul className="absolute z-10 mt-1 w-full rounded-lg border border-border bg-background shadow-lg max-h-64 overflow-y-auto">
             {suggestions.map((food) => (
               <li key={food.id}>
                 <button
                   type="button"
                   onClick={() => selectFood(food)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-black/[.04] dark:hover:bg-white/[.08] flex justify-between gap-3"
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-primary-soft flex justify-between gap-3"
                 >
                   <span>{food.name}</span>
-                  <span className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
-                    {food.servingLabel}
-                  </span>
+                  <span className="text-muted whitespace-nowrap">{food.servingLabel}</span>
                 </button>
               </li>
             ))}
@@ -143,17 +144,15 @@ export default function AddEntryForm({
       </div>
 
       {selectedFood && (
-        <div className="flex items-center justify-between rounded-lg bg-black/[.03] dark:bg-white/[.06] px-3 py-2 text-sm">
+        <div className="flex items-center justify-between rounded-lg bg-background border border-border px-3 py-2 text-sm">
           <span>
             Selected: <span className="font-medium">{selectedFood.name}</span>{" "}
-            <span className="text-zinc-500 dark:text-zinc-400">
-              ({selectedFood.servingLabel})
-            </span>
+            <span className="text-muted">({selectedFood.servingLabel})</span>
           </span>
           <button
             type="button"
             onClick={clearSelection}
-            className="text-zinc-500 dark:text-zinc-400 hover:opacity-70"
+            className="text-muted hover:text-primary-ink"
           >
             Clear
           </button>
@@ -162,9 +161,7 @@ export default function AddEntryForm({
 
       <div className="grid grid-cols-2 gap-4">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">
-            Quantity (grams)
-          </span>
+          <span className="font-medium text-muted">Quantity (grams)</span>
           <input
             type="number"
             name="grams"
@@ -179,7 +176,7 @@ export default function AddEntryForm({
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">Meal</span>
+          <span className="font-medium text-muted">Meal</span>
           <select
             name="meal"
             value={meal}
@@ -198,7 +195,7 @@ export default function AddEntryForm({
       <button
         type="submit"
         disabled={pending || !selectedFood}
-        className="rounded-full bg-foreground text-background font-medium h-11 hover:opacity-90 transition-opacity disabled:opacity-50"
+        className="rounded-full bg-primary text-background font-medium h-11 hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 disabled:active:scale-100"
       >
         {pending ? "Adding..." : "Add to log"}
       </button>

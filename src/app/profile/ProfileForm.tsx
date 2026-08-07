@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { updateProfile, type ProfileFormState } from "./actions";
 import type { User } from "@/generated/prisma/client";
 
@@ -9,15 +10,37 @@ const initialState: ProfileFormState = { status: "idle" };
 export default function ProfileForm({ user }: { user: User }) {
   const [state, formAction, pending] = useActionState(updateProfile, initialState);
 
+  if (state.status === "success" && state.isFirstCompletion) {
+    return (
+      <div className="rounded-2xl border border-border bg-surface p-6 flex flex-col gap-4">
+        <h2 className="font-heading text-xl font-semibold">You&apos;re all set!</h2>
+        <p className="text-sm">
+          Your BMI is{" "}
+          <span className="font-semibold">{state.bmi?.toFixed(1)}</span> —{" "}
+          <span className="font-semibold">{state.bmiCategory}</span>. Your daily goal is{" "}
+          <span className="font-semibold">{Math.round(state.calorieGoal ?? 0)} kcal</span>.
+        </p>
+        <p className="text-sm text-muted">Let&apos;s start tracking your food!</p>
+        <Link
+          href="/dashboard"
+          className="self-start rounded-full bg-primary text-background font-medium h-11 leading-[2.75rem] px-6 hover:opacity-90 transition-opacity"
+        >
+          Continue to dashboard
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <form action={formAction} className="flex flex-col gap-5">
       {state.status !== "idle" && (
         <div
-          className={`rounded-lg px-4 py-2 text-sm ${
+          className="rounded-lg px-4 py-2 text-sm font-medium"
+          style={
             state.status === "success"
-              ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400"
-              : "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400"
-          }`}
+              ? { background: "var(--success-soft)", color: "var(--success-ink)" }
+              : { background: "var(--primary-soft)", color: "var(--primary-ink)" }
+          }
         >
           {state.message}
         </div>
@@ -125,7 +148,7 @@ export default function ProfileForm({ user }: { user: User }) {
       <button
         type="submit"
         disabled={pending}
-        className="mt-2 rounded-full bg-foreground text-background font-medium h-11 hover:opacity-90 transition-opacity disabled:opacity-50"
+        className="mt-2 rounded-full bg-primary text-background font-medium h-11 hover:opacity-90 transition-opacity disabled:opacity-50"
       >
         {pending ? "Saving..." : "Save profile"}
       </button>
@@ -136,7 +159,7 @@ export default function ProfileForm({ user }: { user: User }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5 text-sm">
-      <span className="font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
+      <span className="font-medium text-muted">{label}</span>
       {children}
     </label>
   );

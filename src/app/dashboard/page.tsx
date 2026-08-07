@@ -9,29 +9,24 @@ import {
   calculateCalorieGoal,
   calculateMacroTargets,
   getTodayRange,
+  isProfileComplete,
 } from "@/lib/nutrition";
+import MacroPlate from "./MacroPlate";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
 
-  if (
-    user.age == null ||
-    user.sex == null ||
-    user.heightCm == null ||
-    user.weightKg == null ||
-    user.activityLevel == null ||
-    user.goal == null
-  ) {
+  if (!isProfileComplete(user)) {
     return (
       <div className="w-full max-w-xl mx-auto px-6 py-12">
-        <h1 className="text-2xl font-semibold mb-2">Dashboard</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+        <h1 className="font-heading text-2xl font-semibold mb-2">Dashboard</h1>
+        <p className="text-sm text-muted mb-6">
           Finish setting up your profile to see your BMI, calorie goal, and macro
           targets.
         </p>
         <Link
           href="/profile"
-          className="inline-block rounded-full bg-foreground text-background font-medium h-11 leading-[2.75rem] px-6 hover:opacity-90 transition-opacity"
+          className="inline-block rounded-full bg-primary text-background font-medium h-11 leading-[2.75rem] px-6 hover:opacity-90 transition-opacity"
         >
           Complete profile
         </Link>
@@ -40,6 +35,7 @@ export default async function DashboardPage() {
   }
 
   const bmi = calculateBMI(user.weightKg, user.heightCm);
+  const category = bmiCategory(bmi);
   const bmr = calculateBMR({
     weightKg: user.weightKg,
     heightCm: user.heightCm,
@@ -74,79 +70,31 @@ export default async function DashboardPage() {
 
   return (
     <div className="w-full max-w-2xl mx-auto px-6 py-12">
-      <h1 className="text-2xl font-semibold mb-1">Dashboard</h1>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-8">
-        {"Today's progress toward your goals."}
+      <h1 className="font-heading text-2xl font-semibold mb-1">Dashboard</h1>
+      <p className="font-heading italic text-muted mb-8">
+        Today&apos;s progress toward your goals.
       </p>
 
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        <StatCard label="BMI" value={bmi.toFixed(1)} subtext={bmiCategory(bmi)} />
-        <StatCard
-          label="Calories today"
-          value={`${Math.round(consumed.calories)}`}
-          subtext={`of ${Math.round(calorieGoal)} kcal goal`}
-        />
-      </div>
+      <div className="flex flex-col sm:flex-row gap-6 items-stretch sm:items-start">
+        <div className="rounded-xl border border-border bg-surface p-6 sm:flex-1">
+          <MacroPlate
+            calories={{ consumed: consumed.calories, goal: calorieGoal }}
+            protein={{ consumed: consumed.protein, target: macroTargets.proteinG }}
+            carbs={{ consumed: consumed.carbs, target: macroTargets.carbsG }}
+            fat={{ consumed: consumed.fat, target: macroTargets.fatG }}
+          />
+        </div>
 
-      <h2 className="text-lg font-semibold mb-4">Macros</h2>
-      <div className="flex flex-col gap-5">
-        <MacroBar
-          label="Protein"
-          consumedG={consumed.protein}
-          targetG={macroTargets.proteinG}
-        />
-        <MacroBar label="Carbs" consumedG={consumed.carbs} targetG={macroTargets.carbsG} />
-        <MacroBar label="Fat" consumedG={consumed.fat} targetG={macroTargets.fatG} />
-      </div>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  subtext,
-}: {
-  label: string;
-  value: string;
-  subtext: string;
-}) {
-  return (
-    <div className="rounded-xl border border-black/[.08] dark:border-white/[.145] p-5">
-      <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-1">{label}</div>
-      <div className="text-3xl font-semibold">{value}</div>
-      <div className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{subtext}</div>
-    </div>
-  );
-}
-
-function MacroBar({
-  label,
-  consumedG,
-  targetG,
-}: {
-  label: string;
-  consumedG: number;
-  targetG: number;
-}) {
-  const pct = targetG > 0 ? Math.min((consumedG / targetG) * 100, 100) : 0;
-  const over = consumedG > targetG;
-
-  return (
-    <div>
-      <div className="flex justify-between text-sm mb-1.5">
-        <span className="font-medium">{label}</span>
-        <span className="text-zinc-500 dark:text-zinc-400">
-          {Math.round(consumedG)}g / {Math.round(targetG)}g
-        </span>
-      </div>
-      <div className="h-2.5 rounded-full bg-black/[.06] dark:bg-white/[.1] overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-[width] ${
-            over ? "bg-red-500" : "bg-foreground"
-          }`}
-          style={{ width: `${pct}%` }}
-        />
+        <div className="rounded-xl bg-stat-surface p-6 sm:w-48 shrink-0 flex flex-col">
+          <span className="text-sm text-muted mb-1">BMI</span>
+          <span className="font-heading text-3xl font-semibold">{bmi.toFixed(1)}</span>
+          <span
+            className={`text-sm mt-1 ${category === "Normal" ? "font-medium" : "text-muted"}`}
+            style={category === "Normal" ? { color: "var(--success)" } : undefined}
+          >
+            {category}
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -4,10 +4,22 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { ActivityLevel, DietType, Goal, Sex } from "@/generated/prisma/enums";
+import {
+  calculateBMI,
+  bmiCategory,
+  calculateBMR,
+  calculateTDEE,
+  calculateCalorieGoal,
+  isProfileComplete,
+} from "@/lib/nutrition";
 
 export type ProfileFormState = {
   status: "idle" | "success" | "error";
   message?: string;
+  isFirstCompletion?: boolean;
+  bmi?: number;
+  bmiCategory?: string;
+  calorieGoal?: number;
 };
 
 export async function updateProfile(
@@ -36,8 +48,12 @@ export async function updateProfile(
   }
 
   const user = await getCurrentUser();
+  // Was this profile incomplete before this save? If so, this save is the
+  // user's first-ever completion, and the onboarding results screen should
+  // show — routine later edits to an already-complete profile shouldn't.
+  const wasIncomplete = !isProfileComplete(user);
 
-  await prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: user.id },
     data: {
       name: name || null,
@@ -53,6 +69,27 @@ export async function updateProfile(
 
   revalidatePath("/profile");
   revalidatePath("/dashboard");
+
+  if (wasIncomplete && isProfileComplete(updated)) {
+    const bmi = calculateBMI(updated.weightKg, updated.heightCm);
+    const bmr = calculateBMR({
+      weightKg: updated.weightKg,
+      heightCm: updated.heightCm,
+      age: updated.age,
+      sex: updated.sex,
+    });
+    const tdee = calculateTDEE(bmr, updated.activityLevel);
+    const calorieGoal = calculateCalorieGoal(tdee, updated.goal);
+
+    return {
+      status: "success",
+      message: "Profile saved.",
+      isFirstCompletion: true,
+      bmi,
+      bmiCategory: bmiCategory(bmi),
+      calorieGoal,
+    };
+  }
 
   return { status: "success", message: "Profile saved." };
 }

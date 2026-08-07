@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
+import NavLinks from "./NavLinks";
+import MobileNav from "./MobileNav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -11,6 +12,13 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -26,24 +34,21 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <nav className="border-b border-black/[.08] dark:border-white/[.145]">
+        <nav className="border-b border-border bg-surface/60">
           <div className="max-w-3xl mx-auto flex items-center gap-6 px-6 h-14 text-sm font-medium">
-            <span className="font-semibold">Nutrition Tracker</span>
-            <Link href="/dashboard" className="hover:opacity-70">
-              Dashboard
-            </Link>
-            <Link href="/log" className="hover:opacity-70">
-              Food Log
-            </Link>
-            <Link href="/profile" className="hover:opacity-70">
-              Profile
-            </Link>
+            <span className="font-heading font-semibold text-primary tracking-tight">
+              Nutrition Tracker
+            </span>
+            <div className="hidden sm:flex items-center gap-6">
+              <NavLinks />
+            </div>
           </div>
         </nav>
-        <div className="flex flex-1 flex-col">{children}</div>
+        <div className="flex flex-1 flex-col pb-28 sm:pb-0">{children}</div>
+        <MobileNav />
       </body>
     </html>
   );

@@ -1,45 +1,177 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fbf5ea;
+  --surface: #ffffff;
+  --foreground: #2a2016;
+  --muted: #7c6b57;
+  --border: #e3d5be;
+
+  /* Primary action color IS the ink tone (solid dark fill, not an accent
+     hue) — buttons/nav/focus-ring use bg-primary + text-background, which
+     inverts cleanly in dark mode since both tokens flip together below. */
+  --primary: #2a2016;
+  --primary-soft: #e5e4e3;
+  --primary-ink: #2a2016;
+
+  /* Success state (BMI status, "added to log" confirmation) — sampled from
+     the mockup's status text, not one of the three macro colors. */
+  --success: #3f6e1a;
+  --success-soft: #dce5d6;
+  --success-ink: #2c4d12;
+
+  /* Macro-plate colors — protein/carbs/fat from the mockup's exact hex
+     values, spread widely in hue so they stay distinguishable as thin ring
+     wedges in both light and dark mode. */
+  --macro-protein: #d85a30;
+  --macro-protein-soft: #f8e1da;
+  --macro-protein-ink: #973f22;
+
+  --macro-carbs: #ba7517;
+  --macro-carbs-soft: #f3e6d5;
+  --macro-carbs-ink: #825210;
+
+  --macro-fat: #1d9e75;
+  --macro-fat-soft: #d6eee6;
+  --macro-fat-ink: #146f52;
+
+  /* Small stat-card fill (BMI card) — a warm tan between background and
+     surface, sampled from the mockup; not part of the official token table. */
+  --stat-surface: #f3e8d6;
+
+  --focus-ring: var(--primary);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+
+  --color-primary: var(--primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-ink: var(--primary-ink);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-ink: var(--success-ink);
+
+  --color-stat-surface: var(--stat-surface);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-fraunces);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #17120c;
+    --surface: #1f1811;
+    --foreground: #f3ead9;
+    --muted: #a6957e;
+    --border: #34291c;
+
+    /* Inverted from light mode: primary becomes the light cream tone so
+       bg-primary/text-background buttons stay a light-fill/dark-text pair
+       instead of vanishing into the dark background. */
+    --primary: #f3ead9;
+    --primary-soft: #242321;
+    --primary-ink: #f3ead9;
+
+    --success: #799a5f;
+    --success-soft: #1c2316;
+    --success-ink: #799a5f;
+
+    --macro-protein: #e48c6e;
+    --macro-protein-soft: #342019;
+    --macro-protein-ink: #e48c6e;
+
+    --macro-carbs: #cf9e5d;
+    --macro-carbs-soft: #302415;
+    --macro-carbs-ink: #cf9e5d;
+
+    --macro-fat: #61bb9e;
+    --macro-fat-soft: #162b24;
+    --macro-fat-ink: #61bb9e;
+
+    --stat-surface: #2b2116;
+
+    --focus-ring: var(--primary);
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
 .input {
-  border: 1px solid rgb(0 0 0 / 0.1);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
   background: var(--background);
   color: var(--foreground);
 }
 
-.input:focus {
-  outline: 2px solid rgb(0 0 0 / 0.3);
+/* A visible, on-brand focus ring on every interactive element, not just
+   inputs — the default browser outline gets replaced everywhere via
+   :focus-visible rather than :focus, so mouse clicks don't show a ring
+   but keyboard/AT navigation always does. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.input:focus-visible {
   outline-offset: -1px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .input {
-    border-color: rgb(255 255 255 / 0.145);
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 180ms ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 200ms ease-out;
+}
+
+/* Lets the macro ring's filled arc visibly sweep to its new value instead of
+   jump-cutting — supported in current Chrome/Firefox/Safari, which is all
+   this portfolio app targets; older browsers just skip straight to the
+   final frame with no animation. */
+.plate-arc-fill {
+  transition: d 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-scale-in {
+    animation: none;
+  }
+  .plate-arc-fill {
+    transition: none;
   }
 }

@@ -55,6 +55,37 @@ export function calculateMacroTargets(weightKg: number, calorieGoal: number) {
   return { proteinG, fatG, carbsG };
 }
 
+type ProfileFields = {
+  age: number | null;
+  sex: Sex | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  activityLevel: ActivityLevel | null;
+  goal: Goal | null;
+};
+
+type CompleteProfileFields = {
+  age: number;
+  sex: Sex;
+  heightCm: number;
+  weightKg: number;
+  activityLevel: ActivityLevel;
+  goal: Goal;
+};
+
+export function isProfileComplete<T extends ProfileFields>(
+  user: T,
+): user is T & CompleteProfileFields {
+  return (
+    user.age != null &&
+    user.sex != null &&
+    user.heightCm != null &&
+    user.weightKg != null &&
+    user.activityLevel != null &&
+    user.goal != null
+  );
+}
+
 export function getTodayRange() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
