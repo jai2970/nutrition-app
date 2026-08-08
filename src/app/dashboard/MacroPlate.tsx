@@ -9,6 +9,7 @@ const INNER_R = 64;
 const OVERFLOW_R = 114;
 const GAP_DEG = 4;
 const SECTOR_DEG = 120;
+const RING_SIZE = 160;
 
 const WEDGES: {
   key: "protein" | "carbs" | "fat";
@@ -27,17 +28,21 @@ export default function MacroPlate({
   protein,
   carbs,
   fat,
+  bmi,
+  bmiCategory,
 }: {
   calories: { consumed: number; goal: number };
   protein: MacroTarget;
   carbs: MacroTarget;
   fat: MacroTarget;
+  bmi: number;
+  bmiCategory: string;
 }) {
   const data: Record<"protein" | "carbs" | "fat", MacroTarget> = { protein, carbs, fat };
 
   return (
-    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
-      <div className="relative shrink-0" style={{ width: 220, height: 220 }}>
+    <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-6 sm:gap-8">
+      <div className="relative shrink-0" style={{ width: RING_SIZE, height: RING_SIZE }}>
         {/* Decorative — the legend list below carries the same numbers as real text. */}
         <svg viewBox="0 0 240 240" width="100%" height="100%" aria-hidden="true">
           {WEDGES.map((wedge, i) => {
@@ -81,15 +86,15 @@ export default function MacroPlate({
             );
           })}
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
-          <span className="font-heading text-3xl font-semibold leading-none">
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+          <span className="font-heading text-2xl font-semibold leading-none">
             {Math.round(calories.consumed)}
           </span>
-          <span className="text-xs text-muted mt-1">of {Math.round(calories.goal)} kcal</span>
+          <span className="text-xs text-muted mt-1">kcal today</span>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 w-full sm:w-auto sm:min-w-[200px]">
+      <div className="flex flex-col justify-center gap-3 w-full sm:w-auto sm:min-w-[190px]">
         {WEDGES.map((wedge) => {
           const { consumed, target } = data[wedge.key];
           const overBy = Math.round(consumed - target);
@@ -120,6 +125,19 @@ export default function MacroPlate({
             </div>
           );
         })}
+      </div>
+
+      <div className="hidden sm:block w-px bg-border self-stretch shrink-0" />
+
+      <div className="flex flex-row sm:flex-col items-baseline sm:items-start gap-2 sm:gap-1 w-full sm:w-24 shrink-0 border-t sm:border-t-0 border-border pt-4 sm:pt-0 mt-1 sm:mt-0">
+        <span className="text-sm text-muted">BMI</span>
+        <span className="font-heading text-2xl font-semibold">{bmi.toFixed(1)}</span>
+        <span
+          className={`text-sm ${bmiCategory === "Normal" ? "font-medium" : "text-muted"}`}
+          style={bmiCategory === "Normal" ? { color: "var(--success)" } : undefined}
+        >
+          {bmiCategory}
+        </span>
       </div>
     </div>
   );

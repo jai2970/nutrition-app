@@ -27,9 +27,8 @@ type MatchedRow = Omit<MatchedItem, "meal"> & { key: string; meal: Meal };
 type Tab = "describe" | "photo" | "manual";
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: "describe", label: "Describe" },
   { key: "photo", label: "Photo" },
-  { key: "manual", label: "Manual search" },
+  { key: "describe", label: "Describe" },
 ];
 
 const MEAL_LABELS: Record<Meal, string> = {
@@ -46,7 +45,7 @@ const PRIMARY_BUTTON =
   "self-start rounded-full bg-primary text-background font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 disabled:active:scale-100";
 
 export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
-  const [activeTab, setActiveTab] = useState<Tab>("describe");
+  const [activeTab, setActiveTab] = useState<Tab>("photo");
   const [description, setDescription] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
@@ -225,14 +224,7 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-5 flex flex-col gap-4">
-      <div>
-        <h2 className="font-heading font-semibold text-lg mb-1">Log a meal</h2>
-        <p className="text-sm text-muted">
-          Describe what you ate, snap a photo, or search for a food directly.
-        </p>
-      </div>
-
+    <div className="rounded-[20px] border border-border bg-surface shadow-card p-5 flex flex-col gap-4">
       <div className="relative flex gap-1 border-b border-border -mb-px">
         {TABS.map((tab) => {
           const active = activeTab === tab.key;
@@ -254,7 +246,7 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
         })}
         <span
           className="absolute bottom-0 h-0.5 transition-[left,width] duration-200 ease-out"
-          style={{ left: indicator.left, width: indicator.width, background: "var(--macro-protein)" }}
+          style={{ left: indicator.left, width: indicator.width, background: "var(--primary)" }}
         />
       </div>
 
@@ -268,30 +260,6 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
           }
         >
           {error ?? successMessage}
-        </div>
-      )}
-
-      {activeTab === "describe" && (
-        <div className="flex flex-col gap-4 animate-fade-in">
-          <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-muted">Describe your meal</span>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. 2 rotis, dal, and a bowl of curd"
-              rows={2}
-              className="input resize-none"
-            />
-          </label>
-
-          <button
-            type="button"
-            onClick={handleParseText}
-            disabled={isParsing || !description.trim()}
-            className={`${PRIMARY_BUTTON} h-10 px-5 text-sm`}
-          >
-            {isParsingText ? "Parsing..." : "Parse with AI"}
-          </button>
         </div>
       )}
 
@@ -397,7 +365,31 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
             disabled={isParsing || !photoFile}
             className={`${PRIMARY_BUTTON} h-10 px-5 text-sm`}
           >
-            {isParsingPhoto ? "Identifying..." : "Identify food in photo"}
+            {isParsingPhoto ? "Identifying..." : "Let's calculate your macros"}
+          </button>
+        </div>
+      )}
+
+      {activeTab === "describe" && (
+        <div className="flex flex-col gap-4 animate-fade-in">
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-muted">Describe your meal</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. 2 rotis, dal, and a bowl of curd"
+              rows={2}
+              className="input resize-none"
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={handleParseText}
+            disabled={isParsing || !description.trim()}
+            className={`${PRIMARY_BUTTON} h-10 px-5 text-sm`}
+          >
+            {isParsingText ? "Parsing..." : "Let's calculate your macros"}
           </button>
         </div>
       )}

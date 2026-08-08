@@ -25,7 +25,7 @@ export default function ProfileForm({ user }: { user: User }) {
           href="/dashboard"
           className="self-start rounded-full bg-primary text-background font-medium h-11 leading-[2.75rem] px-6 hover:opacity-90 transition-opacity"
         >
-          Continue to dashboard
+          Continue to Today
         </Link>
       </div>
     );

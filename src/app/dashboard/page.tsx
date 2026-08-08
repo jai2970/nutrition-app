@@ -8,18 +8,36 @@ import {
   calculateTDEE,
   calculateCalorieGoal,
   calculateMacroTargets,
+  getGreeting,
   getTodayRange,
   isProfileComplete,
 } from "@/lib/nutrition";
+import { Meal } from "@/generated/prisma/enums";
 import MacroPlate from "./MacroPlate";
+import LogMealCard from "@/app/log/LogMealCard";
+import MealEntryList from "@/app/log/MealEntryList";
 
-export default async function DashboardPage() {
+const MEAL_ORDER: Meal[] = ["BREAKFAST", "LUNCH", "DINNER", "SNACKS"];
+const MEAL_LABELS: Record<Meal, string> = {
+  BREAKFAST: "Breakfast",
+  LUNCH: "Lunch",
+  DINNER: "Dinner",
+  SNACKS: "Snacks",
+};
+const MEAL_EMPTY_COPY: Record<Meal, string> = {
+  BREAKFAST: "Start the day — log your first bite.",
+  LUNCH: "What's for lunch?",
+  DINNER: "Add dinner when you're ready.",
+  SNACKS: "Snacks count too.",
+};
+
+export default async function TodayPage() {
   const user = await getCurrentUser();
 
   if (!isProfileComplete(user)) {
     return (
       <div className="w-full max-w-xl mx-auto px-6 py-12">
-        <h1 className="font-heading text-2xl font-semibold mb-2">Dashboard</h1>
+        <h1 className="font-heading text-2xl font-semibold mb-2">Today</h1>
         <p className="text-sm text-muted mb-6">
           Finish setting up your profile to see your BMI, calorie goal, and macro
           targets.
@@ -45,16 +63,18 @@ export default async function DashboardPage() {
   const tdee = calculateTDEE(bmr, user.activityLevel);
   const calorieGoal = calculateCalorieGoal(tdee, user.goal);
   const macroTargets = calculateMacroTargets(user.weightKg, calorieGoal);
+  const greeting = getGreeting();
 
   const { start, end } = getTodayRange();
 
-  const todaysEntries = await prisma.foodEntry.findMany({
-    where: {
-      userId: user.id,
-      consumedAt: { gte: start, lt: end },
-    },
-    include: { foodItem: true },
-  });
+  const [foods, todaysEntries] = await Promise.all([
+    prisma.foodItem.findMany({ orderBy: { name: "asc" } }),
+    prisma.foodEntry.findMany({
+      where: { userId: user.id, consumedAt: { gte: start, lt: end } },
+      include: { foodItem: true },
+      orderBy: { consumedAt: "asc" },
+    }),
+  ]);
 
   const consumed = todaysEntries.reduce(
     (acc, entry) => {
@@ -68,34 +88,91 @@ export default async function DashboardPage() {
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   );
 
-  return (
-    <div className="w-full max-w-2xl mx-auto px-6 py-12">
-      <h1 className="font-heading text-2xl font-semibold mb-1">Dashboard</h1>
-      <p className="font-heading italic text-muted mb-8">
-        Today&apos;s progress toward your goals.
-      </p>
+  const entriesByMeal = MEAL_ORDER.reduce(
+    (acc, meal) => {
+      acc[meal] = todaysEntries.filter((e) => e.meal === meal);
+      return acc;
+    },
+    {} as Record<Meal, typeof todaysEntries>,
+  );
 
-      <div className="flex flex-col sm:flex-row gap-6 items-stretch sm:items-start">
-        <div className="rounded-xl border border-border bg-surface p-6 sm:flex-1">
+  return (
+    <div className="w-full max-w-2xl mx-auto px-6 py-8 sm:py-12">
+      <div className="relative mb-10">
+        <div className="rounded-[20px] shadow-card bg-hero text-hero-foreground px-6 sm:px-8 pt-8 pb-20">
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold mb-2">
+            {greeting}, {user.name}
+          </h1>
+          <p className="text-hero-muted mb-6">
+            You&apos;re at {Math.round(consumed.calories).toLocaleString()} of{" "}
+            {Math.round(calorieGoal).toLocaleString()} kcal today
+          </p>
+          <a
+            href="#log-a-meal"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary text-background font-semibold h-11 px-5 hover:opacity-90 active:scale-[0.97] transition-all"
+          >
+            Log a meal <span aria-hidden="true">↓</span>
+          </a>
+        </div>
+
+        <div className="relative -mt-14 mx-2 sm:mx-4 rounded-[20px] bg-surface border border-border shadow-card p-6">
           <MacroPlate
             calories={{ consumed: consumed.calories, goal: calorieGoal }}
             protein={{ consumed: consumed.protein, target: macroTargets.proteinG }}
             carbs={{ consumed: consumed.carbs, target: macroTargets.carbsG }}
             fat={{ consumed: consumed.fat, target: macroTargets.fatG }}
+            bmi={bmi}
+            bmiCategory={category}
           />
         </div>
-
-        <div className="rounded-xl bg-stat-surface p-6 sm:w-48 shrink-0 flex flex-col">
-          <span className="text-sm text-muted mb-1">BMI</span>
-          <span className="font-heading text-3xl font-semibold">{bmi.toFixed(1)}</span>
-          <span
-            className={`text-sm mt-1 ${category === "Normal" ? "font-medium" : "text-muted"}`}
-            style={category === "Normal" ? { color: "var(--success)" } : undefined}
-          >
-            {category}
-          </span>
-        </div>
       </div>
+
+      <section id="log-a-meal" className="scroll-mt-6">
+        <h2 className="text-xs font-semibold tracking-wide text-muted uppercase mb-3">
+          Log a meal
+        </h2>
+        <LogMealCard foods={foods} />
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-xs font-semibold tracking-wide text-muted uppercase mb-4">
+          Today
+        </h2>
+
+        <div className="flex flex-col gap-7">
+          {MEAL_ORDER.map((meal) => {
+            const entries = entriesByMeal[meal];
+            const mealCalories = entries.reduce(
+              (sum, e) => sum + (e.foodItem.caloriesPer100g * e.grams) / 100,
+              0,
+            );
+
+            return (
+              <div key={meal}>
+                <h3 className="text-sm font-semibold mb-2">
+                  {MEAL_LABELS[meal]}
+                  {entries.length > 0 && ` · ${Math.round(mealCalories)} kcal`}
+                </h3>
+
+                {entries.length === 0 ? (
+                  <p className="text-sm text-muted italic">{MEAL_EMPTY_COPY[meal]}</p>
+                ) : (
+                  <MealEntryList
+                    entries={entries.map((e) => ({
+                      id: e.id,
+                      grams: e.grams,
+                      foodItem: {
+                        name: e.foodItem.name,
+                        caloriesPer100g: e.foodItem.caloriesPer100g,
+                      },
+                    }))}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }

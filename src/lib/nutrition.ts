@@ -86,6 +86,13 @@ export function isProfileComplete<T extends ProfileFields>(
   );
 }
 
+export function getGreeting(date: Date = new Date()): string {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export function getTodayRange() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);

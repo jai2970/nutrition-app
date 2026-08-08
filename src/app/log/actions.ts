@@ -44,7 +44,6 @@ export async function addFoodEntry(
     },
   });
 
-  revalidatePath("/log");
   revalidatePath("/dashboard");
 
   return { status: "success", message: `Added ${foodItem.name} to your log.` };
@@ -61,6 +60,5 @@ export async function deleteFoodEntry(formData: FormData) {
   // requiring a separate ownership check before deleting.
   await prisma.foodEntry.deleteMany({ where: { id: entryId, userId: user.id } });
 
-  revalidatePath("/log");
   revalidatePath("/dashboard");
 }

@@ -6,21 +6,11 @@ import { usePathname } from "next/navigation";
 const TABS = [
   {
     href: "/dashboard",
-    label: "Dashboard",
+    label: "Today",
     icon: (
       <>
         <circle cx="12" cy="12" r="8" />
         <circle cx="12" cy="12" r="3.25" />
-      </>
-    ),
-  },
-  {
-    href: "/log",
-    label: "Food Log",
-    icon: (
-      <>
-        <rect x="5" y="4" width="14" height="16" rx="2" />
-        <path d="M8 9h8M8 13h8M8 17h5" />
       </>
     ),
   },

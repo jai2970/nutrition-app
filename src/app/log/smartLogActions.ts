@@ -174,7 +174,6 @@ export async function logParsedItems(
     })),
   });
 
-  revalidatePath("/log");
   revalidatePath("/dashboard");
 
   return { status: "success", count: entries.length };

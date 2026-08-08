@@ -4,8 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const LINKS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/log", label: "Food Log" },
+  { href: "/dashboard", label: "Today" },
   { href: "/profile", label: "Profile" },
 ];
 
@@ -20,14 +19,11 @@ export default function NavLinks() {
           <Link
             key={link.href}
             href={link.href}
-            className={`relative py-1 transition-colors hover:text-primary ${
-              active ? "text-foreground" : "text-muted"
+            className={`transition-colors hover:text-foreground ${
+              active ? "text-foreground font-semibold" : "text-muted"
             }`}
           >
             {link.label}
-            {active && (
-              <span className="absolute -bottom-[1px] left-0 right-0 h-[2px] bg-primary rounded-full" />
-            )}
           </Link>
         );
       })}
