@@ -86,11 +86,19 @@ export function isProfileComplete<T extends ProfileFields>(
   );
 }
 
-export function getGreeting(date: Date = new Date()): string {
-  const hour = date.getHours();
+export function getGreetingForHour(hour: number): string {
   if (hour < 12) return "Good morning";
   if (hour < 17) return "Good afternoon";
   return "Good evening";
+}
+
+// Server-rendered fallback for the initial paint, before the client can
+// determine the visitor's actual local time — hardcoded to IST since the
+// server's own clock (US-East on Vercel) has nothing to do with the
+// visitor's timezone, and the target audience is India.
+export function getGreetingIST(date: Date = new Date()): string {
+  const istHour = new Date(date.getTime() + 5.5 * 60 * 60 * 1000).getUTCHours();
+  return getGreetingForHour(istHour);
 }
 
 export function getTodayRange() {

@@ -150,7 +150,7 @@ export default function ProfileForm({ user }: { user: User }) {
         disabled={pending}
         className="mt-2 rounded-full bg-primary text-background font-medium h-11 hover:opacity-90 transition-opacity disabled:opacity-50"
       >
-        {pending ? "Saving..." : "Save profile"}
+        {pending ? "Saving..." : "Let's calculate your macros"}
       </button>
     </form>
   );

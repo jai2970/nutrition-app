@@ -8,12 +8,13 @@ import {
   calculateTDEE,
   calculateCalorieGoal,
   calculateMacroTargets,
-  getGreeting,
+  getGreetingIST,
   getTodayRange,
   isProfileComplete,
 } from "@/lib/nutrition";
 import { Meal } from "@/generated/prisma/enums";
 import MacroPlate from "./MacroPlate";
+import Greeting from "./Greeting";
 import LogMealCard from "@/app/log/LogMealCard";
 import MealEntryList from "@/app/log/MealEntryList";
 
@@ -69,7 +70,6 @@ export default async function TodayPage() {
   const tdee = calculateTDEE(bmr, user.activityLevel);
   const calorieGoal = calculateCalorieGoal(tdee, user.goal);
   const macroTargets = calculateMacroTargets(user.weightKg, calorieGoal);
-  const greeting = getGreeting();
 
   const { start, end } = getTodayRange();
 
@@ -106,9 +106,7 @@ export default async function TodayPage() {
     <div className="w-full max-w-2xl mx-auto px-6 py-8 sm:py-12">
       <div className="relative mb-10">
         <div className="rounded-[20px] shadow-card bg-hero text-hero-foreground px-6 sm:px-8 pt-8 pb-20">
-          <h1 className="font-heading text-2xl sm:text-3xl font-bold mb-2">
-            {greeting}, {user.name}
-          </h1>
+          <Greeting name={user.name} initialGreeting={getGreetingIST()} />
           <p className="text-hero-muted mb-6">
             You&apos;re at {Math.round(consumed.calories).toLocaleString()} of{" "}
             {Math.round(calorieGoal).toLocaleString()} kcal today

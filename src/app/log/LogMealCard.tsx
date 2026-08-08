@@ -351,6 +351,7 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            capture="environment"
             onChange={handlePhotoChange}
             className="hidden"
           />
