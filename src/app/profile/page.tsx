@@ -1,6 +1,10 @@
 import { getCurrentUser } from "@/lib/current-user";
 import ProfileForm from "./ProfileForm";
 
+// See dashboard/page.tsx for why this is needed — no dynamic API usage here
+// means Next would otherwise statically prerender this page at build time.
+export const dynamic = "force-dynamic";
+
 export default async function ProfilePage() {
   const user = await getCurrentUser();
 

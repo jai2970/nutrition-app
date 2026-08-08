@@ -17,6 +17,12 @@ import MacroPlate from "./MacroPlate";
 import LogMealCard from "@/app/log/LogMealCard";
 import MealEntryList from "@/app/log/MealEntryList";
 
+// Nothing here touches a Next.js "dynamic API" (cookies/headers/searchParams),
+// so without this Next would statically prerender the page at build time —
+// freezing the time-of-day greeting and the getTodayRange() day boundary at
+// whatever they were during the last deploy.
+export const dynamic = "force-dynamic";
+
 const MEAL_ORDER: Meal[] = ["BREAKFAST", "LUNCH", "DINNER", "SNACKS"];
 const MEAL_LABELS: Record<Meal, string> = {
   BREAKFAST: "Breakfast",
