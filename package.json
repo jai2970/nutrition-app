@@ -10,16 +10,17 @@
   },
   "dependencies": {
     "@google/genai": "^2.15.0",
-    "@prisma/adapter-better-sqlite3": "^7.9.1",
+    "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
-    "better-sqlite3": "^13.0.2",
     "next": "16.2.12",
+    "pg": "^8.22.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.21.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
@@ -34,8 +35,6 @@
     "@prisma/engines@7.9.1": true,
     "prisma@7.9.1": true,
     "sharp@0.34.5": true,
-    "unrs-resolver@1.12.2": true,
-    "better-sqlite3@12.11.1": true,
-    "better-sqlite3@13.0.2": true
+    "unrs-resolver@1.12.2": true
   }
 }

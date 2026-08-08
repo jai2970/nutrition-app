@@ -14,7 +14,7 @@ npm run lint     # eslint (flat config, eslint-config-next)
 npx tsc --noEmit # type-check without emitting
 ```
 
-Database (Prisma, SQLite via `dev.db`):
+Database (Prisma, Postgres via Neon):
 
 ```bash
 npx prisma migrate dev --name <description>  # create + apply a migration after editing schema.prisma
@@ -30,6 +30,6 @@ There is no test runner configured yet.
 - **This Next.js version postdates the training data of most models.** Before writing framework code (routing, data fetching, config), check `node_modules/next/dist/docs/01-app/` for current APIs rather than assuming older conventions.
 - **Database access goes through Prisma.** Schema is `prisma/schema.prisma`; SQL migrations live in `prisma/migrations/`. `prisma.config.ts` (not `schema.prisma`) is where `DATABASE_URL` is wired up, loaded via `dotenv/config`.
 - **Prisma Client is generated, not committed.** The generator writes to `src/generated/prisma` (gitignored) — run `npx prisma generate` after cloning or whenever `schema.prisma` changes, or imports from `@/generated/prisma/client` will fail to resolve.
-- **Prisma 7 requires an explicit driver adapter** (no more implicit query engine binary). This project uses `@prisma/adapter-better-sqlite3`. The shared client instance lives in `src/lib/prisma.ts`, cached on `globalThis` in dev to survive Turbopack/Fast Refresh reloads — always import `prisma` from there rather than instantiating `PrismaClient` directly.
+- **Prisma 7 requires an explicit driver adapter** (no more implicit query engine binary). This project uses `@prisma/adapter-pg` against a Neon Postgres database (`DATABASE_URL` in `.env`, gitignored). The shared client instance lives in `src/lib/prisma.ts`, cached on `globalThis` in dev to survive Turbopack/Fast Refresh reloads — always import `prisma` from there rather than instantiating `PrismaClient` directly.
 - **Current data model** (`prisma/schema.prisma`): `User` — `FoodEntry` (many-to-one) — `FoodItem`, where a `FoodEntry` records `grams` of a `FoodItem` consumed by a `User` at a point in time; per-100g macros (calories/protein/carbs/fat) live on `FoodItem` and are scaled by `grams` at query/display time.
 - Claude Code skills for Prisma CLI/client/database-setup workflows are installed under `.claude/skills/` (mirrored in `.agents/skills/`, `.windsurf/skills/`) — consult them for anything beyond the basics above (adapters for other databases, migrations edge cases, etc.) rather than guessing at Prisma 7 syntax.
