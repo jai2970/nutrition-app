@@ -1,12 +1,20 @@
 import { getCurrentUser } from "@/lib/current-user";
+import { isProfileComplete } from "@/lib/nutrition";
 import ProfileForm from "./ProfileForm";
+import OnboardingWizard from "./OnboardingWizard";
 
 // See dashboard/page.tsx for why this is needed — no dynamic API usage here
-// means Next would otherwise statically prerender this page at build time.
+// means Next would otherwise statically prerender the page at build time.
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
+
+  // First-time users get the step-by-step wizard; a returning user editing
+  // an already-complete profile gets the plain single-page form.
+  if (!isProfileComplete(user)) {
+    return <OnboardingWizard />;
+  }
 
   return (
     <div className="w-full max-w-xl mx-auto px-6 py-12">
