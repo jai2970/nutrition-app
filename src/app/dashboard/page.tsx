@@ -40,6 +40,16 @@ const MEAL_EMPTY_COPY: Record<Meal, string> = {
   SNACKS: "Snacks count too.",
 };
 
+function entryCalories(entry: {
+  grams: number;
+  foodItem: { caloriesPer100g: number } | null;
+  customCalories: number | null;
+}): number {
+  return entry.foodItem
+    ? (entry.foodItem.caloriesPer100g * entry.grams) / 100
+    : (entry.customCalories ?? 0);
+}
+
 export default async function TodayPage({
   searchParams,
 }: {
@@ -78,11 +88,18 @@ export default async function TodayPage({
 
   const consumed = todaysEntries.reduce(
     (acc, entry) => {
-      const factor = entry.grams / 100;
-      acc.calories += entry.foodItem.caloriesPer100g * factor;
-      acc.protein += entry.foodItem.proteinPer100g * factor;
-      acc.carbs += entry.foodItem.carbsPer100g * factor;
-      acc.fat += entry.foodItem.fatPer100g * factor;
+      if (entry.foodItem) {
+        const factor = entry.grams / 100;
+        acc.calories += entry.foodItem.caloriesPer100g * factor;
+        acc.protein += entry.foodItem.proteinPer100g * factor;
+        acc.carbs += entry.foodItem.carbsPer100g * factor;
+        acc.fat += entry.foodItem.fatPer100g * factor;
+      } else {
+        acc.calories += entry.customCalories ?? 0;
+        acc.protein += entry.customProtein ?? 0;
+        acc.carbs += entry.customCarbs ?? 0;
+        acc.fat += entry.customFat ?? 0;
+      }
       return acc;
     },
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
@@ -150,10 +167,7 @@ export default async function TodayPage({
         <div className="flex flex-col gap-7">
           {MEAL_ORDER.map((meal) => {
             const entries = entriesByMeal[meal];
-            const mealCalories = entries.reduce(
-              (sum, e) => sum + (e.foodItem.caloriesPer100g * e.grams) / 100,
-              0,
-            );
+            const mealCalories = entries.reduce((sum, e) => sum + entryCalories(e), 0);
 
             return (
               <div key={meal}>
@@ -169,10 +183,11 @@ export default async function TodayPage({
                     entries={entries.map((e) => ({
                       id: e.id,
                       grams: e.grams,
-                      foodItem: {
-                        name: e.foodItem.name,
-                        caloriesPer100g: e.foodItem.caloriesPer100g,
-                      },
+                      foodItem: e.foodItem
+                        ? { name: e.foodItem.name, caloriesPer100g: e.foodItem.caloriesPer100g }
+                        : null,
+                      customFoodName: e.customFoodName,
+                      customCalories: e.customCalories,
                     }))}
                   />
                 )}

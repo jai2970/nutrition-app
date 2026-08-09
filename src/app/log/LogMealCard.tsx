@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   parseMealText,
   parseMealPhoto,
   logParsedItems,
+  logCustomEntry,
   type MatchedItem,
   type UnmatchedItem,
   type ParseMealResult,
@@ -23,6 +24,7 @@ type FoodOption = {
 // Meal is always concrete in row state (never null) — a parsed item with no
 // detected meal falls back to Breakfast, editable per row from there.
 type MatchedRow = Omit<MatchedItem, "meal"> & { key: string; meal: Meal };
+type UnmatchedRow = Omit<UnmatchedItem, "meal"> & { key: string; meal: Meal };
 
 type Tab = "describe" | "photo" | "manual";
 
@@ -55,7 +57,8 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [matchedRows, setMatchedRows] = useState<MatchedRow[]>([]);
-  const [unmatched, setUnmatched] = useState<UnmatchedItem[]>([]);
+  const [unmatchedRows, setUnmatchedRows] = useState<UnmatchedRow[]>([]);
+  const [addingUnmatchedKeys, setAddingUnmatchedKeys] = useState<Set<string>>(new Set());
   const [hasParsed, setHasParsed] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [searchSeed, setSearchSeed] = useState<{ name: string; ts: number } | null>(null);
@@ -90,7 +93,7 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
     if (result.status === "error") {
       setError(result.message);
       setMatchedRows([]);
-      setUnmatched([]);
+      setUnmatchedRows([]);
       setHasParsed(false);
     } else {
       setMatchedRows(
@@ -100,7 +103,13 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
           key: `${item.food.id}-${i}`,
         })),
       );
-      setUnmatched(result.unmatched);
+      setUnmatchedRows(
+        result.unmatched.map((item, i) => ({
+          ...item,
+          meal: item.meal ?? "BREAKFAST",
+          key: `unmatched-${i}-${item.parsedName}`,
+        })),
+      );
       setHasParsed(true);
     }
   }
@@ -196,6 +205,41 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
     setSearchSeed({ name, ts: searchSeedCounter.current });
   }
 
+  function updateUnmatchedMeal(key: string, meal: Meal) {
+    setUnmatchedRows((rows) => rows.map((r) => (r.key === key ? { ...r, meal } : r)));
+  }
+
+  function removeUnmatchedRow(key: string) {
+    setUnmatchedRows((rows) => rows.filter((r) => r.key !== key));
+  }
+
+  async function handleAddUnmatched(row: UnmatchedRow) {
+    setError(null);
+    setAddingUnmatchedKeys((keys) => new Set(keys).add(row.key));
+    try {
+      const result = await logCustomEntry({
+        name: row.parsedName,
+        grams: row.grams,
+        meal: row.meal,
+        macros: row.estimatedMacros,
+      });
+      if (result.status === "error") {
+        setError(result.message);
+      } else {
+        removeUnmatchedRow(row.key);
+        setSuccessMessage(`Added ${row.parsedName} to your log.`);
+      }
+    } catch {
+      setError("Something went wrong adding that item. Please try again.");
+    } finally {
+      setAddingUnmatchedKeys((keys) => {
+        const next = new Set(keys);
+        next.delete(row.key);
+        return next;
+      });
+    }
+  }
+
   async function handleAdd() {
     if (matchedRows.length === 0) return;
     setError(null);
@@ -213,7 +257,7 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
         setDescription("");
         clearPhoto();
         setMatchedRows([]);
-        setUnmatched([]);
+        setUnmatchedRows([]);
         setHasParsed(false);
       }
     } catch {
@@ -452,30 +496,18 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
             </div>
           )}
 
-          {unmatched.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-muted">Couldn&apos;t match</span>
-              {unmatched.map((item, i) => (
-                <div
-                  key={`${item.parsedName}-${i}`}
-                  className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm"
-                  style={{ background: "var(--macro-carbs-soft)" }}
-                >
-                  <span>
-                    {item.parsedName}{" "}
-                    <span className="text-muted">
-                      (~{item.grams}g) — not found in the food database
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleSearchManually(item.parsedName)}
-                    className="whitespace-nowrap font-medium hover:opacity-70"
-                    style={{ color: "var(--macro-carbs-ink)" }}
-                  >
-                    Search manually
-                  </button>
-                </div>
+          {unmatchedRows.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <span className="text-sm font-medium text-muted">Not in our database yet</span>
+              {unmatchedRows.map((row) => (
+                <UnmatchedFoodCard
+                  key={row.key}
+                  row={row}
+                  isAdding={addingUnmatchedKeys.has(row.key)}
+                  onMealChange={(meal) => updateUnmatchedMeal(row.key, meal)}
+                  onAddAnyway={() => handleAddUnmatched(row)}
+                  onSearchManually={() => handleSearchManually(row.parsedName)}
+                />
               ))}
             </div>
           )}
@@ -494,6 +526,132 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+type Confidence = UnmatchedRow["confidence"];
+
+// High/medium confidence get a filled "Add anyway" button — the AI is
+// probably right, so accepting its estimate should feel like the default
+// path. Low confidence swaps to an outline button and adds a caution note,
+// nudging the user to double-check rather than tap through on autopilot.
+const CONFIDENCE_META: Record<
+  Confidence,
+  {
+    label: string;
+    badgeStyle: CSSProperties;
+    cardBorderColor?: string;
+    note?: string;
+    addButtonVariant: "primary" | "outline";
+  }
+> = {
+  high: {
+    label: "High confidence",
+    badgeStyle: { background: "var(--success-soft)", color: "var(--success-ink)" },
+    addButtonVariant: "primary",
+  },
+  medium: {
+    label: "Medium confidence",
+    badgeStyle: { background: "var(--primary-soft)", color: "var(--primary-ink)" },
+    addButtonVariant: "primary",
+  },
+  low: {
+    label: "Low confidence",
+    badgeStyle: { background: "var(--macro-carbs-soft)", color: "var(--macro-carbs-ink)" },
+    cardBorderColor: "var(--macro-carbs)",
+    note: "AI isn't very confident about this one — double-check before adding.",
+    addButtonVariant: "outline",
+  },
+};
+
+function UnmatchedFoodCard({
+  row,
+  isAdding,
+  onMealChange,
+  onAddAnyway,
+  onSearchManually,
+}: {
+  row: UnmatchedRow;
+  isAdding: boolean;
+  onMealChange: (meal: Meal) => void;
+  onAddAnyway: () => void;
+  onSearchManually: () => void;
+}) {
+  const meta = CONFIDENCE_META[row.confidence];
+  const { calories, protein, carbs, fat } = row.estimatedMacros;
+
+  return (
+    <div
+      className="flex flex-col gap-3 rounded-xl border bg-background px-4 py-3"
+      style={{ borderColor: meta.cardBorderColor ?? "var(--border)" }}
+    >
+      <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
+        <div className="flex flex-col gap-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-medium text-sm">{row.parsedName}</span>
+            <span
+              className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+              style={{ background: "var(--primary-soft)", color: "var(--primary-ink)" }}
+            >
+              AI estimate
+            </span>
+            <span
+              className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+              style={meta.badgeStyle}
+            >
+              {meta.label}
+            </span>
+          </div>
+          <span className="text-xs text-muted">
+            ~{row.grams}g · {Math.round(calories)} kcal · {protein}g protein · {carbs}g carbs ·{" "}
+            {fat}g fat
+          </span>
+          {meta.note && (
+            <span className="text-xs" style={{ color: "var(--macro-carbs-ink)" }}>
+              {meta.note}
+            </span>
+          )}
+        </div>
+        <select
+          value={row.meal}
+          onChange={(e) => onMealChange(e.target.value as Meal)}
+          className="input w-28 text-sm shrink-0"
+        >
+          {Object.entries(MEAL_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={onAddAnyway}
+          disabled={isAdding}
+          className={
+            meta.addButtonVariant === "primary"
+              ? `${PRIMARY_BUTTON} h-9 px-4 text-sm`
+              : "self-start rounded-full border font-medium h-9 px-4 text-sm hover:bg-primary-soft active:scale-[0.97] transition-all disabled:opacity-50 disabled:active:scale-100"
+          }
+          style={
+            meta.addButtonVariant === "outline"
+              ? { borderColor: "var(--macro-carbs)", color: "var(--macro-carbs-ink)" }
+              : undefined
+          }
+        >
+          {isAdding ? "Adding..." : "Add anyway"}
+        </button>
+        <button
+          type="button"
+          onClick={onSearchManually}
+          className="text-sm font-medium text-muted hover:text-foreground"
+        >
+          Search manually
+        </button>
+      </div>
     </div>
   );
 }

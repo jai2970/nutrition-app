@@ -1,11 +1,19 @@
 import { GoogleGenAI, Type, type PartUnion } from "@google/genai";
 import { Meal } from "@/generated/prisma/enums";
 
+export type EstimatedMacros = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+};
+
 export type ParsedMealItem = {
   name: string;
   grams: number;
   confidence: "high" | "medium" | "low";
   meal: Meal | null;
+  estimatedMacros: EstimatedMacros;
 };
 
 let client: GoogleGenAI | null = null;
@@ -43,8 +51,20 @@ const RESPONSE_SCHEMA = {
         nullable: true,
         description: "The meal this item was eaten at, if stated or implied",
       },
+      estimatedMacros: {
+        type: Type.OBJECT,
+        description:
+          "Best estimate of the macros for the estimated portion size (not per 100g), using standard Indian nutritional references",
+        properties: {
+          calories: { type: Type.NUMBER, description: "Estimated calories (kcal) for the portion" },
+          protein: { type: Type.NUMBER, description: "Estimated protein in grams for the portion" },
+          carbs: { type: Type.NUMBER, description: "Estimated carbohydrates in grams for the portion" },
+          fat: { type: Type.NUMBER, description: "Estimated fat in grams for the portion" },
+        },
+        required: ["calories", "protein", "carbs", "fat"],
+      },
     },
-    required: ["name", "grams", "confidence"],
+    required: ["name", "grams", "confidence", "estimatedMacros"],
   },
 };
 
@@ -83,7 +103,10 @@ const OUTPUT_FORMAT_INSTRUCTION =
   "— no prose, no explanations, no markdown, nothing outside the JSON " +
   "array. For every item, include the food name, the estimated quantity in " +
   'grams, and a confidence level ("high", "medium", or "low") reflecting ' +
-  "how sure you are about both the identification and the portion estimate.";
+  "how sure you are about both the identification and the portion estimate. " +
+  "For each food item, also provide your best estimate of the macros " +
+  "(calories, protein in grams, carbs in grams, fat in grams) for the " +
+  "estimated portion size. Use standard Indian nutritional references.";
 
 async function generateParsedItems(contents: PartUnion[]): Promise<ParsedMealItem[]> {
   const ai = getClient();
@@ -109,7 +132,7 @@ async function generateParsedItems(contents: PartUnion[]): Promise<ParsedMealIte
 
   return parsed
     .filter(
-      (item): item is { name: string; grams: number; meal?: unknown; confidence?: unknown } =>
+      (item): item is { name: string; grams: number; meal?: unknown; confidence?: unknown; estimatedMacros?: unknown } =>
         typeof (item as ParsedMealItem)?.name === "string" &&
         typeof (item as ParsedMealItem)?.grams === "number" &&
         (item as ParsedMealItem).grams > 0,
@@ -121,7 +144,19 @@ async function generateParsedItems(contents: PartUnion[]): Promise<ParsedMealIte
         ? (item.confidence as ParsedMealItem["confidence"])
         : "medium",
       meal: MEAL_VALUES.includes(item.meal as Meal) ? (item.meal as Meal) : null,
+      estimatedMacros: normalizeMacros(item.estimatedMacros),
     }));
+}
+
+function normalizeMacros(value: unknown): EstimatedMacros {
+  const raw = (value ?? {}) as Record<string, unknown>;
+  const clamp = (n: unknown) => (typeof n === "number" && Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : 0);
+  return {
+    calories: clamp(raw.calories),
+    protein: clamp(raw.protein),
+    carbs: clamp(raw.carbs),
+    fat: clamp(raw.fat),
+  };
 }
 
 export async function parseMealDescription(description: string): Promise<ParsedMealItem[]> {

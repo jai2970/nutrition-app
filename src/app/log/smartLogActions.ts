@@ -7,6 +7,7 @@ import {
   parseMealDescription,
   parseMealImage,
   type ParsedMealItem,
+  type EstimatedMacros,
 } from "@/lib/gemini";
 import { findBestFoodMatch } from "@/lib/food-match";
 import { Meal } from "@/generated/prisma/enums";
@@ -29,6 +30,7 @@ export type UnmatchedItem = {
   grams: number;
   confidence: "high" | "medium" | "low";
   meal: Meal | null;
+  estimatedMacros: EstimatedMacros;
 };
 
 export type ParseMealResult =
@@ -64,6 +66,7 @@ async function matchParsedItems(
         grams: item.grams,
         confidence: item.confidence,
         meal: item.meal,
+        estimatedMacros: item.estimatedMacros,
       });
     }
   }
@@ -185,4 +188,53 @@ export async function logParsedItems(
   revalidatePath("/dashboard");
 
   return { status: "success", count: entries.length };
+}
+
+export type LogCustomResult = { status: "success" } | { status: "error"; message: string };
+
+// For a food Gemini identified but that has no database match — logs the
+// AI's estimated macros directly on the entry rather than requiring a
+// FoodItem row.
+export async function logCustomEntry(entry: {
+  name: string;
+  grams: number;
+  meal: Meal;
+  macros: EstimatedMacros;
+}): Promise<LogCustomResult> {
+  const name = entry.name.trim();
+  if (!name) {
+    return { status: "error", message: "Missing food name." };
+  }
+  if (!Number.isFinite(entry.grams) || entry.grams <= 0) {
+    return { status: "error", message: "Quantity must be greater than 0." };
+  }
+  if (!Object.values(Meal).includes(entry.meal)) {
+    return { status: "error", message: "Pick a meal." };
+  }
+  const { calories, protein, carbs, fat } = entry.macros;
+  if (
+    ![calories, protein, carbs, fat].every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0)
+  ) {
+    return { status: "error", message: "Invalid estimated macros." };
+  }
+
+  const user = await getCurrentUser();
+
+  await prisma.foodEntry.create({
+    data: {
+      userId: user.id,
+      foodItemId: null,
+      grams: entry.grams,
+      meal: entry.meal,
+      customFoodName: name,
+      customCalories: calories,
+      customProtein: protein,
+      customCarbs: carbs,
+      customFat: fat,
+    },
+  });
+
+  revalidatePath("/dashboard");
+
+  return { status: "success" };
 }

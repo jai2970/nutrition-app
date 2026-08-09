@@ -72,12 +72,21 @@ model FoodItem {
 }
 
 model FoodEntry {
-  id         String   @id @default(cuid())
-  user       User     @relation(fields: [userId], references: [id])
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id])
   userId     String
-  foodItem   FoodItem @relation(fields: [foodItemId], references: [id])
-  foodItemId String
+  foodItem   FoodItem? @relation(fields: [foodItemId], references: [id])
+  foodItemId String?
   grams      Float
-  meal       Meal     @default(BREAKFAST)
-  consumedAt DateTime @default(now())
+  meal       Meal      @default(BREAKFAST)
+  consumedAt DateTime  @default(now())
+
+  // Set instead of foodItem/foodItemId when Gemini identifies a food that
+  // isn't in the database — these are the AI's estimated macros for the
+  // whole logged portion (not per-100g), taken as-is at log time.
+  customFoodName String?
+  customCalories Float?
+  customProtein  Float?
+  customCarbs    Float?
+  customFat      Float?
 }
