@@ -14,8 +14,19 @@ import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
+  // Auth.js's config validation checks trustHost before anything else
+  // (including the secret) and fails closed with a generic "Configuration"
+  // error if it's falsy. It's supposed to auto-detect true from
+  // process.env.VERCEL, but that inference is unreliable enough in
+  // practice (and specifically undocumented for Next.js 16's new proxy.ts
+  // convention, which postdates this library) that it's worth setting
+  // explicitly rather than debugging the auto-detection on every deploy.
+  trustHost: true,
   providers: [
     Google({
+      // Explicit names rather than next-auth v5's AUTH_GOOGLE_ID /
+      // AUTH_GOOGLE_SECRET auto-inference, matching what's documented in
+      // the README and set in Vercel.
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       // The pre-auth "Jai" user row was created with this email directly in
