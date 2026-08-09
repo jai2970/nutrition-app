@@ -38,6 +38,15 @@
   --hero-foreground: #fffdf8;
   --hero-muted: #c9bda9;
 
+  /* BMI scale zones (welcome screen + dashboard BMI card). Normal reuses
+     --success since "healthy" already has a color in this palette; the
+     other three are dedicated so they read clearly against the warm
+     background without being mistaken for macro-wedge colors. */
+  --bmi-underweight: #4a7fe0;
+  --bmi-normal: var(--success);
+  --bmi-overweight: #d9a125;
+  --bmi-obese: #d64545;
+
   --focus-ring: var(--primary);
 }
 

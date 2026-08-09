@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
@@ -10,6 +11,7 @@ import {
   calculateBMR,
   calculateTDEE,
   calculateCalorieGoal,
+  calculateMacroTargets,
   isProfileComplete,
 } from "@/lib/nutrition";
 
@@ -20,6 +22,9 @@ export type ProfileFormState = {
   bmi?: number;
   bmiCategory?: string;
   calorieGoal?: number;
+  proteinG?: number;
+  carbsG?: number;
+  fatG?: number;
 };
 
 export async function updateProfile(
@@ -80,7 +85,10 @@ export async function updateProfile(
     });
     const tdee = calculateTDEE(bmr, updated.activityLevel);
     const calorieGoal = calculateCalorieGoal(tdee, updated.goal);
+    const macroTargets = calculateMacroTargets(updated.weightKg, calorieGoal);
 
+    // First-ever completion — return the full result so the form can show
+    // the one-time welcome screen in place, instead of redirecting away.
     return {
       status: "success",
       message: "Profile saved.",
@@ -88,8 +96,13 @@ export async function updateProfile(
       bmi,
       bmiCategory: bmiCategory(bmi),
       calorieGoal,
+      proteinG: macroTargets.proteinG,
+      carbsG: macroTargets.carbsG,
+      fatG: macroTargets.fatG,
     };
   }
 
-  return { status: "success", message: "Profile saved." };
+  // A returning user editing an already-complete profile — no welcome
+  // screen, just back to Today with a brief success indicator.
+  redirect("/dashboard?updated=1");
 }

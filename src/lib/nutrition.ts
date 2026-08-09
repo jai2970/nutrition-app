@@ -26,6 +26,38 @@ export function bmiCategory(bmi: number): string {
   return "Obese";
 }
 
+// Encouraging, non-clinical framing for the onboarding/dashboard BMI copy —
+// keyed off the same categories as bmiCategory() above.
+export function bmiInterpretation(category: string): string {
+  switch (category) {
+    case "Underweight":
+      return "Your BMI suggests you're underweight — let's focus on calorie-dense, protein-rich meals.";
+    case "Overweight":
+      return "Your BMI is in the overweight range — let's track your intake to find the right balance.";
+    case "Obese":
+      return "Your BMI is in a higher range — tracking your meals is a great first step toward a healthier balance.";
+    default:
+      return "You're in the healthy range.";
+  }
+}
+
+// Most Indian users think in feet/inches rather than cm — these let the
+// profile form accept either while the database keeps storing plain cm.
+export function feetInchesToCm(feet: number, inches: number): number {
+  return (feet * 12 + inches) * 2.54;
+}
+
+export function cmToFeetInches(cm: number): { feet: number; inches: number } {
+  const totalInches = cm / 2.54;
+  let feet = Math.floor(totalInches / 12);
+  let inches = Math.round(totalInches - feet * 12);
+  if (inches === 12) {
+    feet += 1;
+    inches = 0;
+  }
+  return { feet, inches };
+}
+
 export function calculateBMR(params: {
   weightKg: number;
   heightCm: number;

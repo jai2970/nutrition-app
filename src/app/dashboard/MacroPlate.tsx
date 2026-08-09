@@ -28,15 +28,11 @@ export default function MacroPlate({
   protein,
   carbs,
   fat,
-  bmi,
-  bmiCategory,
 }: {
   calories: { consumed: number; goal: number };
   protein: MacroTarget;
   carbs: MacroTarget;
   fat: MacroTarget;
-  bmi: number;
-  bmiCategory: string;
 }) {
   const data: Record<"protein" | "carbs" | "fat", MacroTarget> = { protein, carbs, fat };
 
@@ -125,19 +121,6 @@ export default function MacroPlate({
             </div>
           );
         })}
-      </div>
-
-      <div className="hidden sm:block w-px bg-border self-stretch shrink-0" />
-
-      <div className="flex flex-row sm:flex-col items-baseline sm:items-start gap-2 sm:gap-1 w-full sm:w-24 shrink-0 border-t sm:border-t-0 border-border pt-4 sm:pt-0 mt-1 sm:mt-0">
-        <span className="text-sm text-muted">BMI</span>
-        <span className="font-heading text-2xl font-semibold">{bmi.toFixed(1)}</span>
-        <span
-          className={`text-sm ${bmiCategory === "Normal" ? "font-medium" : "text-muted"}`}
-          style={bmiCategory === "Normal" ? { color: "var(--success)" } : undefined}
-        >
-          {bmiCategory}
-        </span>
       </div>
     </div>
   );

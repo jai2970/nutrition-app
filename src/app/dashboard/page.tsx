@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import {
@@ -15,6 +15,8 @@ import {
 import { Meal } from "@/generated/prisma/enums";
 import MacroPlate from "./MacroPlate";
 import Greeting from "./Greeting";
+import ProfileUpdatedToast from "./ProfileUpdatedToast";
+import BmiScale, { getBmiZoneColor } from "@/app/BmiScale";
 import LogMealCard from "@/app/log/LogMealCard";
 import MealEntryList from "@/app/log/MealEntryList";
 
@@ -38,26 +40,18 @@ const MEAL_EMPTY_COPY: Record<Meal, string> = {
   SNACKS: "Snacks count too.",
 };
 
-export default async function TodayPage() {
+export default async function TodayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const user = await getCurrentUser();
 
   if (!isProfileComplete(user)) {
-    return (
-      <div className="w-full max-w-xl mx-auto px-6 py-12">
-        <h1 className="font-heading text-2xl font-semibold mb-2">Today</h1>
-        <p className="text-sm text-muted mb-6">
-          Finish setting up your profile to see your BMI, calorie goal, and macro
-          targets.
-        </p>
-        <Link
-          href="/profile"
-          className="inline-block rounded-full bg-primary text-background font-medium h-11 leading-[2.75rem] px-6 hover:opacity-90 transition-opacity"
-        >
-          Complete profile
-        </Link>
-      </div>
-    );
+    redirect("/profile");
   }
+
+  const { updated } = await searchParams;
 
   const bmi = calculateBMI(user.weightKg, user.heightCm);
   const category = bmiCategory(bmi);
@@ -104,7 +98,9 @@ export default async function TodayPage() {
 
   return (
     <div className="w-full max-w-2xl mx-auto px-6 py-8 sm:py-12">
-      <div className="relative mb-10">
+      {updated === "1" && <ProfileUpdatedToast />}
+
+      <div className="relative mb-6">
         <div className="rounded-[20px] shadow-card bg-hero text-hero-foreground px-6 sm:px-8 pt-8 pb-20">
           <Greeting name={user.name} initialGreeting={getGreetingIST()} />
           <p className="text-hero-muted mb-6">
@@ -125,10 +121,18 @@ export default async function TodayPage() {
             protein={{ consumed: consumed.protein, target: macroTargets.proteinG }}
             carbs={{ consumed: consumed.carbs, target: macroTargets.carbsG }}
             fat={{ consumed: consumed.fat, target: macroTargets.fatG }}
-            bmi={bmi}
-            bmiCategory={category}
           />
         </div>
+      </div>
+
+      <div className="mx-2 sm:mx-4 mb-10 rounded-[20px] border border-border bg-surface shadow-card p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-4 mb-1">
+          <span className="text-xs font-semibold tracking-wide text-muted uppercase">BMI</span>
+          <span className="text-sm font-semibold" style={{ color: getBmiZoneColor(category) }}>
+            {bmi.toFixed(1)} — {category}
+          </span>
+        </div>
+        <BmiScale bmi={bmi} compact />
       </div>
 
       <section id="log-a-meal" className="scroll-mt-6">

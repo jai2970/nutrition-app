@@ -25,7 +25,7 @@ export default function Greeting({
 
   return (
     <h1 className="font-heading text-2xl sm:text-3xl font-bold mb-2">
-      {greeting}, {name}
+      {name ? `${greeting}, ${name}` : "Welcome back"}
     </h1>
   );
 }
