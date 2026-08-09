@@ -14,6 +14,7 @@ import { Meal } from "@/generated/prisma/enums";
 export type MatchedItem = {
   parsedName: string;
   grams: number;
+  confidence: "high" | "medium" | "low";
   meal: Meal | null;
   food: {
     id: string;
@@ -26,6 +27,7 @@ export type MatchedItem = {
 export type UnmatchedItem = {
   parsedName: string;
   grams: number;
+  confidence: "high" | "medium" | "low";
   meal: Meal | null;
 };
 
@@ -47,6 +49,7 @@ async function matchParsedItems(
       matched.push({
         parsedName: item.name,
         grams: item.grams,
+        confidence: item.confidence,
         meal: item.meal,
         food: {
           id: food.id,
@@ -56,7 +59,12 @@ async function matchParsedItems(
         },
       });
     } else {
-      unmatched.push({ parsedName: item.name, grams: item.grams, meal: item.meal });
+      unmatched.push({
+        parsedName: item.name,
+        grams: item.grams,
+        confidence: item.confidence,
+        meal: item.meal,
+      });
     }
   }
 

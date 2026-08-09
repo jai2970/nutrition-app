@@ -61,6 +61,7 @@ model User {
 model FoodItem {
   id              String      @id @default(cuid())
   name            String      @unique
+  aliases         String[]    @default([])
   caloriesPer100g Float
   proteinPer100g  Float
   carbsPer100g    Float

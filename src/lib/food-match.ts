@@ -23,7 +23,7 @@ function extractParenAliases(name: string): string {
  * parsed names from the model rarely match FoodItem.name exactly (e.g. "roti"
  * vs "Roti (whole wheat)"). Below ~0.5 the match is too weak to trust.
  */
-export function findBestFoodMatch<T extends { name: string }>(
+export function findBestFoodMatch<T extends { name: string; aliases: string[] }>(
   query: string,
   foods: T[],
 ): T | null {
@@ -37,20 +37,23 @@ export function findBestFoodMatch<T extends { name: string }>(
 
   for (const food of foods) {
     const normalizedName = normalizeFoodName(food.name);
-    const normalizedAlias = normalizeFoodName(extractParenAliases(food.name));
 
     if (normalizedName === normalizedQuery) {
       return food;
     }
 
-    // A parenthetical alias (e.g. "Curd (dahi)", "Mixed vegetable curry
-    // (sabzi)") is trusted only when every word in the query is covered by
-    // the alias — not via loose word-bag overlap against the primary name.
-    // Aliases are often a single descriptive word (e.g. "raw" in "Paneer
-    // (raw)"), and folding that into general overlap scoring let an
+    // Each alias (a parenthetical aside in the name, e.g. "raw" in "Paneer
+    // (raw)", plus any explicit FoodItem.aliases like "dahi" or "chawal") is
+    // trusted only when every word in the query is covered by that single
+    // alias — not via loose word-bag overlap against the primary name, and
+    // not by merging all aliases into one bag either. Aliases are often one
+    // short word, and folding them into general overlap scoring let an
     // unrelated longer query that merely contains the same word ("raw
     // onion") falsely win a match against "Paneer (raw)".
-    if (normalizedAlias) {
+    const candidateAliases = [extractParenAliases(food.name), ...food.aliases];
+    for (const rawAlias of candidateAliases) {
+      const normalizedAlias = normalizeFoodName(rawAlias);
+      if (!normalizedAlias) continue;
       const aliasWords = new Set(normalizedAlias.split(" ").filter(Boolean));
       const queryCoveredByAlias = [...queryWords].every((w) => aliasWords.has(w));
       if (queryCoveredByAlias) {
