@@ -1,11 +1,8 @@
 import { prisma } from "@/lib/prisma";
-
-const CURRENT_USER_EMAIL = "chauhanjai900@gmail.com";
+import { auth } from "@/lib/auth";
 
 export async function getCurrentUser() {
-  const user = await prisma.user.findUnique({
-    where: { email: CURRENT_USER_EMAIL },
-  });
-  if (user) return user;
-  return prisma.user.create({ data: { email: CURRENT_USER_EMAIL } });
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  return prisma.user.findUnique({ where: { id: session.user.id } });
 }

@@ -11,6 +11,8 @@ const LINKS = [
 export default function NavLinks() {
   const pathname = usePathname();
 
+  if (pathname === "/login") return null;
+
   return (
     <>
       {LINKS.map((link) => {

@@ -29,6 +29,8 @@ const TABS = [
 export default function MobileNav() {
   const pathname = usePathname();
 
+  if (pathname === "/login") return null;
+
   return (
     <nav
       className="sm:hidden fixed bottom-0 inset-x-0 z-20 border-t border-border bg-surface"

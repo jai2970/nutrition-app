@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/current-user";
 import { ActivityLevel, DietType, Goal, Sex } from "@/generated/prisma/enums";
 import {
   calculateBMI,
@@ -30,7 +29,12 @@ export type ProfileFormState = {
 // invoking a Server Action from a client component always refreshes the
 // current route's server tree, which would blow away the wizard's own
 // client-side result screen the moment the profile becomes complete.
-export async function saveProfile(formData: FormData): Promise<ProfileFormState> {
+//
+// Takes the authenticated user's id rather than resolving it internally —
+// the caller (a Server Action or Route Handler) is responsible for
+// verifying the session, since each has a different way to react to a
+// missing one (redirect vs. a 401 response).
+export async function saveProfile(formData: FormData, userId: string): Promise<ProfileFormState> {
   const name = String(formData.get("name") ?? "").trim();
   const age = Number(formData.get("age"));
   const sex = String(formData.get("sex"));
@@ -52,7 +56,10 @@ export async function saveProfile(formData: FormData): Promise<ProfileFormState>
     return { status: "error", message: "Please fill in every field before saving." };
   }
 
-  const user = await getCurrentUser();
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    return { status: "error", message: "Your session is invalid. Please sign in again." };
+  }
   // Was this profile incomplete before this save? If so, this save is the
   // user's first-ever completion, and the onboarding results screen should
   // show — routine later edits to an already-complete profile shouldn't.

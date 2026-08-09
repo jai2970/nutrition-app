@@ -56,6 +56,11 @@ export default async function TodayPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const user = await getCurrentUser();
+  // proxy.ts already redirects signed-out visitors before they reach this
+  // page — this is a defense-in-depth check for the Server Component itself.
+  if (!user) {
+    redirect("/login");
+  }
 
   if (!isProfileComplete(user)) {
     redirect("/profile");

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
 import { saveProfile, type ProfileFormState } from "./saveProfile";
 
 // Used by ProfileForm (the returning-user edit form) via useActionState —
@@ -12,7 +13,12 @@ export async function updateProfile(
   _prevState: ProfileFormState,
   formData: FormData,
 ): Promise<ProfileFormState> {
-  const result = await saveProfile(formData);
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
+  const result = await saveProfile(formData, session.user.id);
 
   if (result.status !== "success") {
     return result;

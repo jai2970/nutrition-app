@@ -20,6 +20,37 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment variables
+
+Database (`.env`, see `prisma.config.ts`):
+
+```
+DATABASE_URL=<Postgres connection string>
+GEMINI_API_KEY=<Gemini API key, for AI meal parsing>
+```
+
+Auth (`.env.local`):
+
+```
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=<generate with `openssl rand -base64 32`>
+GOOGLE_CLIENT_ID=<from Google Cloud Console>
+GOOGLE_CLIENT_SECRET=<from Google Cloud Console>
+```
+
+To get Google OAuth credentials: console.cloud.google.com → APIs & Services →
+Credentials → Create Credentials → OAuth client ID → Web application. Add
+both of these as authorized redirect URIs:
+
+```
+http://localhost:3000/api/auth/callback/google
+https://nutrition-app-delta-tawny.vercel.app/api/auth/callback/google
+```
+
+For the deployed app, add the same four variables (with `NEXTAUTH_URL` set
+to the production URL) in the Vercel dashboard under Settings → Environment
+Variables.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

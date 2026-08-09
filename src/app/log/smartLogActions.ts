@@ -81,6 +81,10 @@ function geminiErrorMessage(err: unknown): string {
 }
 
 export async function parseMealText(description: string): Promise<ParseMealResult> {
+  if (!(await getCurrentUser())) {
+    return { status: "error", message: "Please sign in to log a meal." };
+  }
+
   const trimmed = description.trim();
   if (!trimmed) {
     return { status: "error", message: "Describe what you ate first." };
@@ -109,6 +113,10 @@ const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "imag
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 export async function parseMealPhoto(formData: FormData): Promise<ParseMealResult> {
+  if (!(await getCurrentUser())) {
+    return { status: "error", message: "Please sign in to log a meal." };
+  }
+
   const file = formData.get("photo");
   if (!(file instanceof File) || file.size === 0) {
     return { status: "error", message: "Choose a photo first." };
@@ -175,6 +183,9 @@ export async function logParsedItems(
   }
 
   const user = await getCurrentUser();
+  if (!user) {
+    return { status: "error", message: "Please sign in to log a meal." };
+  }
 
   await prisma.foodEntry.createMany({
     data: entries.map((entry) => ({
@@ -219,6 +230,9 @@ export async function logCustomEntry(entry: {
   }
 
   const user = await getCurrentUser();
+  if (!user) {
+    return { status: "error", message: "Please sign in to log a meal." };
+  }
 
   await prisma.foodEntry.create({
     data: {

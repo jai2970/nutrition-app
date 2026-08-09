@@ -34,6 +34,9 @@ export async function addFoodEntry(
   }
 
   const user = await getCurrentUser();
+  if (!user) {
+    return { status: "error", message: "Your session expired. Please sign in again." };
+  }
 
   await prisma.foodEntry.create({
     data: {
@@ -54,6 +57,7 @@ export async function deleteFoodEntry(formData: FormData) {
   if (!entryId) return;
 
   const user = await getCurrentUser();
+  if (!user) return;
 
   // Scoping the delete to the current user's own entries means a forged
   // entryId for someone else's entry just deletes nothing, rather than

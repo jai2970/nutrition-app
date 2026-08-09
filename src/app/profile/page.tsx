@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
+import { signOut } from "@/lib/auth";
 import { isProfileComplete } from "@/lib/nutrition";
 import ProfileForm from "./ProfileForm";
 import OnboardingWizard from "./OnboardingWizard";
@@ -9,6 +11,11 @@ export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
+  // proxy.ts already redirects signed-out visitors before they reach this
+  // page — this is a defense-in-depth check for the Server Component itself.
+  if (!user) {
+    redirect("/login");
+  }
 
   // First-time users get the step-by-step wizard; a returning user editing
   // an already-complete profile gets the plain single-page form.
@@ -24,6 +31,18 @@ export default async function ProfilePage() {
       </p>
 
       <ProfileForm user={user} />
+
+      <form
+        action={async () => {
+          "use server";
+          await signOut({ redirectTo: "/login" });
+        }}
+        className="mt-8 pt-6 border-t border-border"
+      >
+        <button type="submit" className="text-sm text-muted hover:text-foreground transition-colors">
+          Sign out
+        </button>
+      </form>
     </div>
   );
 }
