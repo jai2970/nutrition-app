@@ -7,12 +7,17 @@ import {
   getGreetingIST,
   isProfileComplete,
 } from "@/lib/nutrition";
-import { calculateTargets, getTodaysConsumedMacros } from "@/lib/daily-summary";
+import {
+  calculateTargets,
+  getTodaysConsumedMacros,
+  getWeeklyMacroTrends,
+} from "@/lib/daily-summary";
 import { Meal } from "@/generated/prisma/enums";
 import MacroPlate from "./MacroPlate";
 import Greeting from "./Greeting";
 import ProfileUpdatedToast from "./ProfileUpdatedToast";
 import BmiScale, { getBmiZoneColor } from "@/app/BmiScale";
+import WeeklyTrends from "./WeeklyTrends";
 import LogMealCard from "@/app/log/LogMealCard";
 import MealEntryList from "@/app/log/MealEntryList";
 import DietAdvisorChat from "./DietAdvisorChat";
@@ -69,9 +74,10 @@ export default async function TodayPage({
   const category = bmiCategory(bmi);
   const { calorieGoal, macroTargets } = calculateTargets(user);
 
-  const [foods, { entries: todaysEntries, consumed }] = await Promise.all([
+  const [foods, { entries: todaysEntries, consumed }, weeklyTrends] = await Promise.all([
     prisma.foodItem.findMany({ orderBy: { name: "asc" } }),
     getTodaysConsumedMacros(user.id),
+    getWeeklyMacroTrends(user.id),
   ]);
 
   const entriesByMeal = MEAL_ORDER.reduce(
@@ -120,6 +126,10 @@ export default async function TodayPage({
             </span>
           </div>
           <BmiScale bmi={bmi} compact />
+        </div>
+
+        <div className="mx-2 sm:mx-4 mb-10">
+          <WeeklyTrends data={weeklyTrends} proteinTargetG={macroTargets.proteinG} />
         </div>
 
         <section id="log-a-meal" className="scroll-mt-6">

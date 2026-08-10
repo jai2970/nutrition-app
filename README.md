@@ -1,67 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Nutrition Tracker
+
+An India-first AI nutrition tracker that solves the protein gap in Indian diets.
+
+**Live app:** [nutrition-app-delta-tawny.vercel.app](https://nutrition-app-delta-tawny.vercel.app)
+
+## The Problem
+
+Indian diets are typically 60-70% carbohydrate, with protein intake well below ICMR-NIN's recommended daily allowance — a pattern driven by rice/roti forming the base of nearly every meal. Mainstream trackers like MyFitnessPal and HealthifyMe have thin Indian food coverage and don't surface this pattern at all. Vegetarians are hit hardest: protein sources are limited to dal, paneer, and curd, and there's no good tool for tracking against Indian-specific dietary guidelines rather than generic Western macro targets.
+
+## What This App Does
+
+- AI-powered meal logging via text description or photo (Gemini Flash)
+- 79-item Indian food database sourced from IFCT, with Hindi alias matching (dahi → curd, chawal → rice)
+- Falls back to AI-estimated macros when a logged food isn't in the database, instead of dead-ending
+- RAG-powered diet advisor grounded in ICMR-NIN nutritional guidelines — 56 curated knowledge chunks, retrieved via in-memory cosine similarity
+- Personalized daily calorie/macro targets based on BMI, activity level, and goal (lose/maintain/gain)
+- Weekly protein-vs-carb trend chart to visualize the core dietary pattern over time
+- Multi-user auth via Google OAuth (NextAuth v5) — independent profiles and meal history per user
+
+## Architecture
+
+```mermaid
+flowchart LR
+    U[User] --> N[Next.js App Router]
+    N --> G1[Gemini Flash API<br/>meal parsing]
+    N --> G2[Gemini Embedding API<br/>RAG retrieval]
+    N --> D[(Neon Postgres<br/>via Prisma)]
+    N --> A[NextAuth v5<br/>Google OAuth]
+```
+
+## Tech Stack
+
+- **Next.js 16** (App Router, TypeScript)
+- **Tailwind CSS**
+- **Prisma** + **Neon Postgres**
+- **Gemini API** — Flash for meal parsing & advisor answers, embeddings for RAG
+- **NextAuth v5** with Google OAuth
+- **Vercel** (deployment)
+
+## Key Technical Decisions
+
+- **In-memory cosine similarity over a vector DB** (Pinecone/ChromaDB) — at 56 knowledge chunks, the infrastructure overhead isn't justified. At scale, I'd move to pgvector.
+- **RAG over direct prompting for diet advice** — grounding responses in verified ICMR-NIN content prevents the model from hallucinating specific nutritional claims.
+- **AI-estimated macro fallback over strict database matching** — real meals always include foods outside any fixed database, so the app estimates via Gemini and lets the user accept the estimate rather than dead-ending on "not found."
+- **Client-side timezone detection with an IST server fallback** — the target audience is India-based, but the greeting still renders correctly for anyone regardless of timezone.
 
 ## Getting Started
 
-First, run the development server:
+**Prerequisites:** Node.js 18+, a Neon (or any) Postgres database, a Gemini API key, Google OAuth credentials.
 
 ```bash
+git clone <repo-url>
+cd nutrition-app
+npm install
+```
+
+Set up environment variables — `.env`:
+
+```
+DATABASE_URL=
+GEMINI_API_KEY=
+```
+
+`.env.local`:
+
+```
+NEXTAUTH_URL=
+NEXTAUTH_SECRET=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+```
+
+Then:
+
+```bash
+npx prisma migrate dev
+npx prisma db seed
+npm run seed:embeddings   # computes RAG knowledge-base embeddings
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Environment variables
-
-Database (`.env`, see `prisma.config.ts`):
-
-```
-DATABASE_URL=<Postgres connection string>
-GEMINI_API_KEY=<Gemini API key, for AI meal parsing>
-```
-
-Auth (`.env.local`):
-
-```
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=<generate with `openssl rand -base64 32`>
-GOOGLE_CLIENT_ID=<from Google Cloud Console>
-GOOGLE_CLIENT_SECRET=<from Google Cloud Console>
-```
-
-To get Google OAuth credentials: console.cloud.google.com → APIs & Services →
-Credentials → Create Credentials → OAuth client ID → Web application. Add
-both of these as authorized redirect URIs:
-
-```
-http://localhost:3000/api/auth/callback/google
-https://nutrition-app-delta-tawny.vercel.app/api/auth/callback/google
-```
-
-For the deployed app, add the same four variables (with `NEXTAUTH_URL` set
-to the production URL) in the Vercel dashboard under Settings → Environment
-Variables.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Open [http://localhost:3000](http://localhost:3000).

@@ -85,3 +85,47 @@ export async function getTodaysConsumedMacros(userId: string) {
   });
   return { entries, consumed: sumConsumedMacros(entries) };
 }
+
+export type DailyMacroTrend = ConsumedMacros & { date: string };
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Last 7 days including today, oldest first — every day gets an entry (0s
+// for days with no logged meals) so the trends chart always has a fixed
+// 7-point x-axis rather than gaps.
+export async function getWeeklyMacroTrends(userId: string): Promise<DailyMacroTrend[]> {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const rangeStart = new Date(todayStart);
+  rangeStart.setDate(rangeStart.getDate() - 6);
+
+  const rangeEnd = new Date(todayStart);
+  rangeEnd.setDate(rangeEnd.getDate() + 1);
+
+  const entries = await prisma.foodEntry.findMany({
+    where: { userId, consumedAt: { gte: rangeStart, lt: rangeEnd } },
+    include: { foodItem: true },
+  });
+
+  const dayKeys: number[] = [];
+  const entriesByDay = new Map<number, typeof entries>();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(rangeStart);
+    d.setDate(d.getDate() + i);
+    const key = d.getTime();
+    dayKeys.push(key);
+    entriesByDay.set(key, []);
+  }
+
+  for (const entry of entries) {
+    const d = new Date(entry.consumedAt);
+    d.setHours(0, 0, 0, 0);
+    entriesByDay.get(d.getTime())?.push(entry);
+  }
+
+  return dayKeys.map((key) => ({
+    date: DAY_LABELS[new Date(key).getDay()],
+    ...sumConsumedMacros(entriesByDay.get(key) ?? []),
+  }));
+}

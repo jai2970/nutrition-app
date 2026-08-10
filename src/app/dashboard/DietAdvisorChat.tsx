@@ -121,11 +121,6 @@ export default function DietAdvisorChat() {
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{m.content}</p>
-                  {m.sources && m.sources.length > 0 && (
-                    <p className="mt-2 text-[11px] text-muted border-t border-border/70 pt-1.5">
-                      Sources: {m.sources.join(", ")}
-                    </p>
-                  )}
                 </div>
               </div>
             ))}
