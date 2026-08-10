@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "seed:embeddings": "tsx scripts/seed-embeddings.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

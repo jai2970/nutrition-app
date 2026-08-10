@@ -185,11 +185,47 @@ body {
   animation: wizard-step-from-left 250ms ease-out;
 }
 
+/* Diet advisor chat panel — slides up from the bottom on open. */
+@keyframes chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-chat-in {
+  animation: chat-in 220ms ease-out;
+}
+
+/* Typing indicator — three dots bouncing in a staggered sequence. */
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.animate-typing-dot {
+  animation: typing-dot 1s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
   .animate-scale-in,
   .wizard-step-forward,
-  .wizard-step-back {
+  .wizard-step-back,
+  .animate-chat-in,
+  .animate-typing-dot {
     animation: none;
   }
   .plate-arc-fill {

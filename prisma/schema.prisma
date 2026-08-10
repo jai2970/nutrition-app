@@ -44,22 +44,23 @@ enum Meal {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  emailVerified DateTime?
-  image         String?
-  name          String?
-  age           Int?
-  sex           Sex?
-  heightCm      Float?
-  weightKg      Float?
-  activityLevel ActivityLevel?
-  dietType      DietType?
-  goal          Goal?
-  createdAt     DateTime       @default(now())
-  entries       FoodEntry[]
-  accounts      Account[]
-  sessions      Session[]
+  id             String         @id @default(cuid())
+  email          String         @unique
+  emailVerified  DateTime?
+  image          String?
+  name           String?
+  age            Int?
+  sex            Sex?
+  heightCm       Float?
+  weightKg       Float?
+  activityLevel  ActivityLevel?
+  dietType       DietType?
+  goal           Goal?
+  createdAt      DateTime       @default(now())
+  entries        FoodEntry[]
+  accounts       Account[]
+  sessions       Session[]
+  advisorQueries AdvisorQuery[]
 }
 
 // NextAuth (Auth.js v5) Prisma adapter tables — required shape, see
@@ -107,7 +108,7 @@ model FoodItem {
   proteinPer100g  Float
   carbsPer100g    Float
   fatPer100g      Float
-  servingSizeG    Float        @default(100)
+  servingSizeG    Float       @default(100)
   servingLabel    String
   entries         FoodEntry[]
 }
@@ -130,4 +131,15 @@ model FoodEntry {
   customProtein  Float?
   customCarbs    Float?
   customFat      Float?
+}
+
+// One row per diet-advisor chat question — doubles as the daily rate-limit
+// counter (count rows since midnight) so the limit survives serverless
+// cold starts, unlike an in-memory counter.
+model AdvisorQuery {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  question  String
+  createdAt DateTime @default(now())
 }

@@ -1,5 +1,6 @@
-import { GoogleGenAI, Type, type PartUnion } from "@google/genai";
+import { Type, type PartUnion } from "@google/genai";
 import { Meal } from "@/generated/prisma/enums";
+import { getGenAIClient } from "@/lib/genai-client";
 
 export type EstimatedMacros = {
   calories: number;
@@ -15,19 +16,6 @@ export type ParsedMealItem = {
   meal: Meal | null;
   estimatedMacros: EstimatedMacros;
 };
-
-let client: GoogleGenAI | null = null;
-
-function getClient(): GoogleGenAI {
-  if (!client) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not set.");
-    }
-    client = new GoogleGenAI({ apiKey });
-  }
-  return client;
-}
 
 const MEAL_VALUES = Object.values(Meal);
 const CONFIDENCE_VALUES = ["high", "medium", "low"] as const;
@@ -109,7 +97,7 @@ const OUTPUT_FORMAT_INSTRUCTION =
   "estimated portion size. Use standard Indian nutritional references.";
 
 async function generateParsedItems(contents: PartUnion[]): Promise<ParsedMealItem[]> {
-  const ai = getClient();
+  const ai = getGenAIClient();
 
   const response = await ai.models.generateContent({
     model: "gemini-flash-latest",
