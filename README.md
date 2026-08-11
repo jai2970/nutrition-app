@@ -18,6 +18,23 @@ Indian diets are typically 60-70% carbohydrate, with protein intake well below I
 - Weekly protein-vs-carb trend chart to visualize the core dietary pattern over time
 - Multi-user auth via Google OAuth (NextAuth v5) — independent profiles and meal history per user
 
+## Screenshots
+
+| Dashboard | Diet Advisor | Mobile |
+|-----------|-------------|--------|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Advisor](docs/screenshots/advisor.png) | ![Mobile](docs/screenshots/mobile.png) |
+
+<details>
+<summary>More screenshots</summary>
+
+### Login
+![Login](docs/screenshots/login.png)
+
+### Onboarding
+![Onboarding](docs/screenshots/onboarding.png)
+
+</details>
+
 ## Architecture
 
 ```mermaid

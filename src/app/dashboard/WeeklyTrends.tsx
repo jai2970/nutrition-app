@@ -26,6 +26,12 @@ export default function WeeklyTrends({
               <span className="h-2 w-2 rounded-full" style={{ background: "var(--macro-carbs)" }} />
               Carbs
             </span>
+            <span className="flex items-center gap-1.5">
+              <svg width="10" height="2" viewBox="0 0 10 2" aria-hidden="true">
+                <line x1="0" y1="1" x2="10" y2="1" stroke="var(--primary)" strokeWidth="1.5" strokeDasharray="2.5 2" />
+              </svg>
+              Target
+            </span>
           </div>
         )}
       </div>
@@ -58,13 +64,6 @@ export default function WeeklyTrends({
                   fontSize: 12,
                 }}
               />
-              <ReferenceLine
-                y={proteinTargetG}
-                stroke="var(--primary)"
-                strokeDasharray="4 4"
-                strokeOpacity={0.5}
-                label={{ value: "Target", position: "insideTopRight", fontSize: 10, fill: "var(--muted)" }}
-              />
               <Bar dataKey="protein" name="Protein (g)" fill="var(--primary)" radius={[4, 4, 0, 0]} maxBarSize={18} />
               <Bar
                 dataKey="carbs"
@@ -73,6 +72,13 @@ export default function WeeklyTrends({
                 radius={[4, 4, 0, 0]}
                 maxBarSize={18}
               />
+              {/* No inline label here — Recharts assigns bars and reference
+                  lines to internal z-index layers independent of JSX order,
+                  so a label at the target's height can end up visually
+                  painted over by a tall bar on whichever day is closest to
+                  target. The legend above names it instead, which has no
+                  such collision risk. */}
+              <ReferenceLine y={proteinTargetG} stroke="var(--primary)" strokeDasharray="4 4" strokeOpacity={0.7} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

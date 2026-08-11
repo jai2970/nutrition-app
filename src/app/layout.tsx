@@ -38,7 +38,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <nav className="border-b border-border bg-surface/60">
-          <div className="max-w-3xl mx-auto flex items-center gap-6 px-6 h-14 text-sm font-medium">
+          <div className="max-w-3xl mx-auto flex items-center justify-between gap-6 px-6 h-14 text-sm font-medium">
             <span className="font-heading font-semibold text-primary tracking-tight">
               Nutrition Tracker
             </span>
