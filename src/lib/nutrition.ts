@@ -133,10 +133,24 @@ export function getGreetingIST(date: Date = new Date()): string {
   return getGreetingForHour(istHour);
 }
 
-export function getTodayRange() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
+// KNOWN SIMPLIFICATION: day boundaries are hardcoded to IST (Asia/Kolkata,
+// UTC+5:30, no DST) rather than stored per user. The server clock is UTC on
+// Vercel, so without this "today" would roll over at 5:30 am IST. The target
+// audience is India; supporting other timezones would mean a per-user
+// timezone field (or the client sending its day range) and replacing this
+// constant — every day-boundary calculation goes through istDayStart().
+export const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
+
+// The instant (as a Date) at which the IST calendar day containing `date`
+// began, i.e. 00:00 IST.
+export function istDayStart(date: Date = new Date()): Date {
+  const istMs = date.getTime() + IST_OFFSET_MS;
+  return new Date(Math.floor(istMs / DAY_MS) * DAY_MS - IST_OFFSET_MS);
+}
+
+export function getTodayRange(now: Date = new Date()) {
+  const start = istDayStart(now);
+  const end = new Date(start.getTime() + DAY_MS);
   return { start, end };
 }

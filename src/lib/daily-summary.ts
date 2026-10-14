@@ -5,8 +5,11 @@ import {
   calculateCalorieGoal,
   calculateMacroTargets,
   getTodayRange,
+  istDayStart,
+  IST_OFFSET_MS,
+  DAY_MS,
 } from "@/lib/nutrition";
-import type { ActivityLevel, Goal, Sex } from "@/generated/prisma/enums";
+import type { ActivityLevel, Goal, Meal, Sex } from "@/generated/prisma/enums";
 
 type CompleteProfile = {
   weightKg: number;
@@ -88,44 +91,90 @@ export async function getTodaysConsumedMacros(userId: string) {
 
 export type DailyMacroTrend = ConsumedMacros & { date: string };
 
+export type HistoryEntry = {
+  id: string;
+  name: string;
+  isEstimate: boolean;
+  grams: number;
+  meal: Meal;
+  consumedAt: string;
+  calories: number;
+  protein: number;
+};
+
+export type DayHistory = {
+  dateKey: string;
+  weekday: string;
+  dayNum: number;
+  label: string;
+  isToday: boolean;
+  totals: ConsumedMacros;
+  entries: HistoryEntry[];
+};
+
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-// Last 7 days including today, oldest first — every day gets an entry (0s
-// for days with no logged meals) so the trends chart always has a fixed
-// 7-point x-axis rather than gaps.
-export async function getWeeklyMacroTrends(userId: string): Promise<DailyMacroTrend[]> {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+type EntryRow = Omit<EntryLike, "foodItem"> & {
+  id: string;
+  meal: Meal;
+  consumedAt: Date;
+  customFoodName: string | null;
+  foodItem: (NonNullable<EntryLike["foodItem"]> & { name: string }) | null;
+};
 
-  const rangeStart = new Date(todayStart);
-  rangeStart.setDate(rangeStart.getDate() - 6);
+export function toHistoryEntry(entry: EntryRow): HistoryEntry {
+  const macros = sumConsumedMacros([entry]);
+  return {
+    id: entry.id,
+    name: entry.foodItem?.name ?? entry.customFoodName ?? "Unknown food",
+    isEstimate: !entry.foodItem,
+    grams: entry.grams,
+    meal: entry.meal,
+    consumedAt: entry.consumedAt.toISOString(),
+    calories: macros.calories,
+    protein: macros.protein,
+  };
+}
 
-  const rangeEnd = new Date(todayStart);
-  rangeEnd.setDate(rangeEnd.getDate() + 1);
+// Last 7 days including today, oldest first — every day gets an entry (empty
+// for days with no logged meals) so the week strip always has seven tiles.
+// Feeds both the strip (with tap-to-open day detail) and the trends chart.
+// Days are IST calendar days (see istDayStart in nutrition.ts for why).
+export async function getWeeklyHistory(userId: string): Promise<DayHistory[]> {
+  const todayStart = istDayStart();
+  const rangeStart = new Date(todayStart.getTime() - 6 * DAY_MS);
+  const rangeEnd = new Date(todayStart.getTime() + DAY_MS);
 
   const entries = await prisma.foodEntry.findMany({
     where: { userId, consumedAt: { gte: rangeStart, lt: rangeEnd } },
     include: { foodItem: true },
+    orderBy: { consumedAt: "asc" },
   });
 
-  const dayKeys: number[] = [];
-  const entriesByDay = new Map<number, typeof entries>();
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(rangeStart);
-    d.setDate(d.getDate() + i);
-    const key = d.getTime();
-    dayKeys.push(key);
-    entriesByDay.set(key, []);
-  }
+  const days = Array.from({ length: 7 }, (_, i) => ({
+    start: new Date(rangeStart.getTime() + i * DAY_MS),
+    entries: [] as typeof entries,
+  }));
 
   for (const entry of entries) {
-    const d = new Date(entry.consumedAt);
-    d.setHours(0, 0, 0, 0);
-    entriesByDay.get(d.getTime())?.push(entry);
+    const i = Math.floor((entry.consumedAt.getTime() - rangeStart.getTime()) / DAY_MS);
+    days[i]?.entries.push(entry);
   }
 
-  return dayKeys.map((key) => ({
-    date: DAY_LABELS[new Date(key).getDay()],
-    ...sumConsumedMacros(entriesByDay.get(key) ?? []),
-  }));
+  return days.map(({ start, entries: dayEntries }, i) => {
+    // Shift by the IST offset so the UTC getters read IST calendar fields.
+    const ist = new Date(start.getTime() + IST_OFFSET_MS);
+    const weekday = DAY_LABELS[ist.getUTCDay()];
+    const dayNum = ist.getUTCDate();
+    return {
+      dateKey: `${ist.getUTCFullYear()}-${ist.getUTCMonth() + 1}-${dayNum}`,
+      weekday,
+      dayNum,
+      label: `${weekday} ${dayNum} ${MONTH_LABELS[ist.getUTCMonth()]}`,
+      isToday: i === 6,
+      totals: sumConsumedMacros(dayEntries),
+      entries: dayEntries.map(toHistoryEntry),
+    };
+  });
 }

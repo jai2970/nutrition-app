@@ -10,13 +10,16 @@ import {
 import {
   calculateTargets,
   getTodaysConsumedMacros,
-  getWeeklyMacroTrends,
+  getWeeklyHistory,
+  toHistoryEntry,
 } from "@/lib/daily-summary";
+import { getInsight } from "@/lib/insight";
 import { Meal } from "@/generated/prisma/enums";
-import MacroPlate from "./MacroPlate";
+import ProteinHero from "./ProteinHero";
+import WeekStrip from "./WeekStrip";
 import Greeting from "./Greeting";
 import ProfileUpdatedToast from "./ProfileUpdatedToast";
-import BmiScale, { getBmiZoneColor } from "@/app/BmiScale";
+import { getBmiZoneColor } from "@/app/BmiScale";
 import WeeklyTrends from "./WeeklyTrends";
 import LogMealCard from "@/app/log/LogMealCard";
 import MealEntryList from "@/app/log/MealEntryList";
@@ -42,16 +45,6 @@ const MEAL_EMPTY_COPY: Record<Meal, string> = {
   SNACKS: "Snacks count too.",
 };
 
-function entryCalories(entry: {
-  grams: number;
-  foodItem: { caloriesPer100g: number } | null;
-  customCalories: number | null;
-}): number {
-  return entry.foodItem
-    ? (entry.foodItem.caloriesPer100g * entry.grams) / 100
-    : (entry.customCalories ?? 0);
-}
-
 export default async function TodayPage({
   searchParams,
 }: {
@@ -74,108 +67,115 @@ export default async function TodayPage({
   const category = bmiCategory(bmi);
   const { calorieGoal, macroTargets } = calculateTargets(user);
 
-  const [foods, { entries: todaysEntries, consumed }, weeklyTrends] = await Promise.all([
+  const [foods, { entries: todaysEntries, consumed }, weekHistory] = await Promise.all([
     prisma.foodItem.findMany({ orderBy: { name: "asc" } }),
     getTodaysConsumedMacros(user.id),
-    getWeeklyMacroTrends(user.id),
+    getWeeklyHistory(user.id),
   ]);
 
-  const entriesByMeal = MEAL_ORDER.reduce(
+  const weeklyTrends = weekHistory.map((d) => ({ date: d.weekday, ...d.totals }));
+  const todaysRows = todaysEntries.map(toHistoryEntry);
+  const insight = getInsight({
+    protein: consumed.protein,
+    proteinTarget: macroTargets.proteinG,
+    calories: consumed.calories,
+    calorieGoal,
+    diet: user.dietType,
+  });
+
+  const rowsByMeal = MEAL_ORDER.reduce(
     (acc, meal) => {
-      acc[meal] = todaysEntries.filter((e) => e.meal === meal);
+      acc[meal] = todaysRows.filter((r) => r.meal === meal);
       return acc;
     },
-    {} as Record<Meal, typeof todaysEntries>,
+    {} as Record<Meal, typeof todaysRows>,
   );
 
   return (
     <>
-      <div className="w-full max-w-2xl mx-auto px-6 py-8 sm:py-12">
+      <div className="w-full max-w-5xl mx-auto px-6 py-8 sm:py-12">
         {updated === "1" && <ProfileUpdatedToast />}
 
-        <div className="relative mb-6">
-          <div className="rounded-[20px] shadow-card bg-hero text-hero-foreground px-6 sm:px-8 pt-8 pb-20">
+        <div className="grid gap-8 lg:gap-12 lg:grid-cols-2 items-start">
+          <div className="flex flex-col gap-8 lg:sticky lg:top-8">
             <Greeting name={user.name} initialGreeting={getGreetingIST()} />
-            <p className="text-hero-muted mb-6">
-              You&apos;re at {Math.round(consumed.calories).toLocaleString()} of{" "}
-              {Math.round(calorieGoal).toLocaleString()} kcal today
-            </p>
-            <a
-              href="#log-a-meal"
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary text-background font-semibold h-11 px-5 hover:opacity-90 active:scale-[0.97] transition-all"
-            >
-              Log a meal <span aria-hidden="true">↓</span>
-            </a>
-          </div>
-
-          <div className="relative -mt-14 mx-2 sm:mx-4 rounded-[20px] bg-surface border border-border shadow-card p-6">
-            <MacroPlate
-              calories={{ consumed: consumed.calories, goal: calorieGoal }}
+            <ProteinHero
               protein={{ consumed: consumed.protein, target: macroTargets.proteinG }}
+              calories={{ consumed: consumed.calories, goal: calorieGoal }}
               carbs={{ consumed: consumed.carbs, target: macroTargets.carbsG }}
               fat={{ consumed: consumed.fat, target: macroTargets.fatG }}
+              insight={insight}
             />
+            <WeekStrip days={weekHistory} proteinTargetG={macroTargets.proteinG} />
+          </div>
+
+          <div className="flex flex-col gap-10">
+            <section aria-labelledby="today-heading">
+              <div className="flex items-baseline justify-between mb-4">
+                <h2 id="today-heading" className="font-heading text-[22px] leading-7 font-semibold">
+                  Today
+                </h2>
+                <span className="text-xs text-muted">Protein · kcal</span>
+              </div>
+
+              <div className="flex flex-col gap-6">
+                {MEAL_ORDER.map((meal) => {
+                  const rows = rowsByMeal[meal];
+                  const mealProtein = rows.reduce((sum, r) => sum + r.protein, 0);
+                  const mealCalories = rows.reduce((sum, r) => sum + r.calories, 0);
+
+                  return (
+                    <div key={meal}>
+                      <h3 className="flex items-baseline justify-between text-xs font-semibold tracking-[0.06em] uppercase text-muted mb-2">
+                        <span>{MEAL_LABELS[meal]}</span>
+                        {rows.length > 0 && (
+                          <span className="normal-case tracking-normal font-medium tabular-nums">
+                            {Math.round(mealProtein)}g · {Math.round(mealCalories)} kcal
+                          </span>
+                        )}
+                      </h3>
+
+                      {rows.length === 0 ? (
+                        <a
+                          href="#log-a-meal"
+                          className="flex items-center min-h-12 rounded-2xl border border-dashed border-border px-4 text-sm text-muted hover:border-primary hover:text-primary-ink transition-colors"
+                        >
+                          {MEAL_EMPTY_COPY[meal]}
+                        </a>
+                      ) : (
+                        <MealEntryList entries={rows} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section id="log-a-meal" className="scroll-mt-6">
+              <h2 className="font-heading text-[22px] leading-7 font-semibold mb-4">Log a meal</h2>
+              <LogMealCard foods={foods} />
+            </section>
+
+            <details className="group rounded-[20px] border border-border bg-surface shadow-card">
+              <summary className="flex items-center justify-between cursor-pointer list-none min-h-14 px-5 sm:px-6 text-sm font-semibold">
+                Weekly trends
+                <span className="text-muted transition-transform group-open:rotate-180" aria-hidden="true">
+                  ▾
+                </span>
+              </summary>
+              <div className="px-1 pb-2">
+                <WeeklyTrends data={weeklyTrends} proteinTargetG={macroTargets.proteinG} />
+              </div>
+            </details>
+
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-surface px-5 py-4">
+              <span className="text-xs font-semibold tracking-[0.06em] text-muted uppercase">BMI</span>
+              <span className="text-sm font-semibold" style={{ color: getBmiZoneColor(category) }}>
+                {bmi.toFixed(1)} — {category}
+              </span>
+            </div>
           </div>
         </div>
-
-        <div className="mx-2 sm:mx-4 mb-10 rounded-[20px] border border-border bg-surface shadow-card p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-4 mb-1">
-            <span className="text-xs font-semibold tracking-wide text-muted uppercase">BMI</span>
-            <span className="text-sm font-semibold" style={{ color: getBmiZoneColor(category) }}>
-              {bmi.toFixed(1)} — {category}
-            </span>
-          </div>
-          <BmiScale bmi={bmi} compact />
-        </div>
-
-        <div className="mx-2 sm:mx-4 mb-10">
-          <WeeklyTrends data={weeklyTrends} proteinTargetG={macroTargets.proteinG} />
-        </div>
-
-        <section id="log-a-meal" className="scroll-mt-6">
-          <h2 className="text-xs font-semibold tracking-wide text-muted uppercase mb-3">
-            Log a meal
-          </h2>
-          <LogMealCard foods={foods} />
-        </section>
-
-        <section className="mt-10">
-          <h2 className="text-xs font-semibold tracking-wide text-muted uppercase mb-4">
-            Today
-          </h2>
-
-          <div className="flex flex-col gap-7">
-            {MEAL_ORDER.map((meal) => {
-              const entries = entriesByMeal[meal];
-              const mealCalories = entries.reduce((sum, e) => sum + entryCalories(e), 0);
-
-              return (
-                <div key={meal}>
-                  <h3 className="text-sm font-semibold mb-2">
-                    {MEAL_LABELS[meal]}
-                    {entries.length > 0 && ` · ${Math.round(mealCalories)} kcal`}
-                  </h3>
-
-                  {entries.length === 0 ? (
-                    <p className="text-sm text-muted italic">{MEAL_EMPTY_COPY[meal]}</p>
-                  ) : (
-                    <MealEntryList
-                      entries={entries.map((e) => ({
-                        id: e.id,
-                        grams: e.grams,
-                        foodItem: e.foodItem
-                          ? { name: e.foodItem.name, caloriesPer100g: e.foodItem.caloriesPer100g }
-                          : null,
-                        customFoodName: e.customFoodName,
-                        customCalories: e.customCalories,
-                      }))}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
       </div>
 
       <DietAdvisorChat />
