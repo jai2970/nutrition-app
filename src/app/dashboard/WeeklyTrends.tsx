@@ -13,7 +13,7 @@ export default function WeeklyTrends({
   const daysWithData = data.filter((d) => d.calories > 0).length;
 
   return (
-    <div className="rounded-[20px] border border-border bg-surface shadow-card p-5 sm:p-6">
+    <div className="px-4 pb-4 sm:px-5">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">This week</h2>
         {daysWithData >= 2 && (
