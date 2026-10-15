@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Nutrition Tracker — log meals, hit your protein";
+export const alt = "Macroly — scan your plate, get your macros, fix your meal";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -26,9 +26,9 @@ export default function OpengraphImage() {
           <path d="M33 22C36 11 46 7 56 10C53 21 43 25 33 22Z" fill="#fff" />
         </svg>
         <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 560 }}>
-          <div style={{ fontSize: 84, fontWeight: 700, lineHeight: 1.05, letterSpacing: -2 }}>Nutrition Tracker</div>
+          <div style={{ fontSize: 84, fontWeight: 700, lineHeight: 1.05, letterSpacing: -2 }}>Macroly</div>
           <div style={{ fontSize: 36, lineHeight: 1.3, color: "#7A6C5A" }}>
-            Log meals from a photo or a sentence. Hit your protein.
+            Scan your plate. Get your macros. Fix your meal.
           </div>
         </div>
       </div>

@@ -21,7 +21,7 @@ export default async function LoginPage({
       <div className="w-full max-w-sm flex flex-col items-center gap-8 text-center">
         <div className="flex flex-col gap-2">
           <span className="font-heading text-2xl font-semibold text-primary tracking-tight">
-            Nutrition Tracker
+            Macroly
           </span>
           <p className="text-sm text-muted">
             Track your meals and macros, personalized to you.

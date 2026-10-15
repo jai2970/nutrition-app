@@ -1,4 +1,4 @@
-# Nutrition Tracker
+# Macroly
 
 An India-first AI nutrition tracker that solves the protein gap in Indian diets.
 

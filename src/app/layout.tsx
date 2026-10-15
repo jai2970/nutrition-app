@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import Link from "next/link";
 import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
-import NavLinks from "./NavLinks";
+import { TopBar, Body } from "./AppChrome";
 import MobileNav from "./MobileNav";
 import ToastProvider from "./Toaster";
 
@@ -23,7 +22,7 @@ const fraunces = Fraunces({
   style: ["normal", "italic"],
 });
 
-const SITE_NAME = "Nutrition Tracker";
+const SITE_NAME = "Macroly";
 const DESCRIPTION =
   "Log meals from a photo or a sentence and see your protein, calories and macros at a glance, with targets personalised to you.";
 
@@ -62,21 +61,8 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ToastProvider>
-          <nav className="border-b border-border bg-surface/60">
-            <div className="max-w-5xl mx-auto flex items-center justify-between gap-6 px-6 h-14 text-sm font-medium">
-              <Link
-                href="/dashboard"
-                aria-label="Nutrition Tracker — go to Today"
-                className="font-heading font-semibold text-primary tracking-tight hover:opacity-80 transition-opacity"
-              >
-                Nutrition Tracker
-              </Link>
-              <div className="hidden sm:flex items-center gap-6">
-                <NavLinks />
-              </div>
-            </div>
-          </nav>
-          <div className="flex flex-1 flex-col pb-28 sm:pb-0">{children}</div>
+          <TopBar />
+          <Body>{children}</Body>
           <MobileNav />
         </ToastProvider>
       </body>

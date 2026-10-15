@@ -1,0 +1,95 @@
+.macroly-portal {
+  --gp-paper: #fbf8f2;
+  --gp-ink: #0b3b2a;
+  --gp-field: #0b3b2a;
+  --gp-foreground: #f6efe0;
+  --macroly-cream: #f6efe0;
+  --macroly-green: #0b3b2a;
+}
+
+/* Opening frame */
+.macroly-front {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+  padding: 0 24px 22svh;
+  padding-bottom: 20cqh;
+  text-align: center;
+  color: var(--macroly-green);
+}
+.macroly-sub {
+  margin: 0;
+  font-size: clamp(15px, 4vw, 20px);
+  letter-spacing: 0.01em;
+}
+
+/* Sign-in buttons */
+.macroly-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 26px;
+  border: 0;
+  border-radius: 999px;
+  font: 600 16px/1 inherit;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.macroly-btn:hover { opacity: 0.9; }
+.macroly-btn:active { transform: scale(0.97); }
+.macroly-btn:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+.macroly-btn-icon { width: 20px; height: 20px; flex: none; }
+.macroly-btn-paper { background: var(--macroly-green); color: var(--macroly-cream); }
+.macroly-btn-field { background: var(--macroly-cream); color: var(--macroly-green); }
+
+/* Revealed content */
+.macroly-content { max-width: 40rem; display: grid; gap: 28px; justify-items: start; }
+.macroly-h1 {
+  margin: 0;
+  font-size: clamp(30px, 8vw, 56px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.macroly-points { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; width: 100%; }
+.macroly-points li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 14px;
+  row-gap: 2px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(246, 239, 224, 0.25);
+}
+.macroly-num { grid-row: span 2; font-size: 13px; opacity: 0.7; padding-top: 4px; }
+.macroly-point-title { font-size: 19px; font-weight: 600; }
+.macroly-point-body { font-size: 15px; line-height: 1.45; opacity: 0.85; }
+
+/* Pre-font / no-JS version */
+.macroly-static { background: var(--gp-paper); }
+.macroly-static-hero {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.macroly-static-word {
+  font-weight: 700;
+  font-size: min(16.5vw, 38svh);
+  line-height: 1;
+  color: var(--macroly-green);
+  letter-spacing: 0;
+}
+.macroly-static-body {
+  background: var(--macroly-green);
+  color: var(--macroly-cream);
+  padding: clamp(32px, 7vw, 100px) clamp(24px, 7vw, 100px);
+}

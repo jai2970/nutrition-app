@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Nutrition Tracker",
-    short_name: "Nutrition",
+    name: "Macroly",
+    short_name: "Macroly",
     description: "Track your meals, protein, calories and macros.",
     start_url: "/dashboard",
     display: "standalone",
