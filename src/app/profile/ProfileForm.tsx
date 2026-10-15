@@ -1,5 +1,6 @@
 "use client";
 
+import Notice from "@/app/Notice";
 import { useState } from "react";
 import { useActionState } from "react";
 import { updateProfile } from "./actions";
@@ -19,18 +20,7 @@ export default function ProfileForm({ user }: { user: User }) {
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
-      {state.status !== "idle" && (
-        <div
-          className="rounded-lg px-4 py-2 text-sm font-medium"
-          style={
-            state.status === "success"
-              ? { background: "var(--success-soft)", color: "var(--success-ink)" }
-              : { background: "var(--primary-soft)", color: "var(--primary-ink)" }
-          }
-        >
-          {state.message}
-        </div>
-      )}
+      {state.status === "error" && <Notice tone="error">{state.message}</Notice>}
 
       <Field label="Name (optional)">
         <input

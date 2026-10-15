@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { deleteFoodEntry } from "./actions";
 import LocalTime from "@/app/dashboard/LocalTime";
+import { useToast } from "@/app/Toaster";
 
 type Entry = {
   id: string;
@@ -18,6 +19,28 @@ export default function MealEntryList({ entries }: { entries: Entry[] }) {
   const knownIds = useRef<Set<string> | null>(null);
   const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+  const toast = useToast();
+
+  function handleDelete(e: FormEvent<HTMLFormElement>, entry: Entry) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    setRemovingId(entry.id);
+    startTransition(async () => {
+      try {
+        const result = await deleteFoodEntry(formData);
+        if (result.status === "error") {
+          setRemovingId(null);
+          toast.error(result.message);
+        } else {
+          toast.success(`Removed ${entry.name} from your log.`);
+        }
+      } catch {
+        setRemovingId(null);
+        toast.error("Couldn't remove that entry. Please try again.");
+      }
+    });
+  }
 
   useEffect(() => {
     const currentIds = new Set(entries.map((e) => e.id));
@@ -55,22 +78,22 @@ export default function MealEntryList({ entries }: { entries: Entry[] }) {
                 }`}
               >
                 <span
-                  className="h-10 w-10 shrink-0 rounded-xl bg-background text-primary-ink font-heading font-semibold text-lg inline-flex items-center justify-center"
+                  className="hidden min-[360px]:inline-flex h-10 w-10 shrink-0 rounded-xl bg-background text-primary-ink font-heading font-semibold text-lg items-center justify-center"
                   aria-hidden="true"
                 >
                   {entry.name.charAt(0).toUpperCase()}
                 </span>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-base font-semibold leading-5 truncate flex items-center gap-1.5">
-                    <span className="truncate">{entry.name}</span>
+                  <p className="text-base font-semibold leading-5 flex flex-wrap items-center gap-x-1.5 break-words">
+                    <span className="min-w-0 break-words">{entry.name}</span>
                     {entry.isEstimate && (
                       <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary-soft text-primary-ink">
                         AI estimate
                       </span>
                     )}
                   </p>
-                  <p className="text-[13px] text-muted leading-5">
+                  <p className="text-[13px] text-muted leading-5 whitespace-nowrap">
                     {Math.round(entry.grams)}g · <LocalTime iso={entry.consumedAt} />
                   </p>
                 </div>
@@ -82,7 +105,7 @@ export default function MealEntryList({ entries }: { entries: Entry[] }) {
                   <p className="text-[13px] text-muted leading-5">{Math.round(entry.calories)} kcal</p>
                 </div>
 
-                <form action={deleteFoodEntry} onSubmit={() => setRemovingId(entry.id)}>
+                <form onSubmit={(e) => handleDelete(e, entry)}>
                   <input type="hidden" name="entryId" value={entry.id} />
                   <button
                     type="submit"

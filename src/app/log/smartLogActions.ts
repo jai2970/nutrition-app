@@ -76,8 +76,8 @@ async function matchParsedItems(
 
 function geminiErrorMessage(err: unknown): string {
   return err instanceof Error && err.message === "GEMINI_API_KEY is not set."
-    ? "AI parsing isn't configured (missing GEMINI_API_KEY)."
-    : "Couldn't reach Gemini right now. Please try again.";
+    ? "AI meal reading isn't available right now."
+    : "The AI helper is unavailable right now. Please try again in a moment.";
 }
 
 export async function parseMealText(description: string): Promise<ParseMealResult> {
@@ -101,7 +101,7 @@ export async function parseMealText(description: string): Promise<ParseMealResul
   if (parsedItems.length === 0) {
     return {
       status: "error",
-      message: "Couldn't identify any food items in that description.",
+      message: "We couldn't spot any food in that. Try listing the items, like “2 rotis, dal and curd”.",
     };
   }
 
@@ -147,7 +147,7 @@ export async function parseMealPhoto(formData: FormData): Promise<ParseMealResul
   if (parsedItems.length === 0) {
     return {
       status: "error",
-      message: "Couldn't identify any food items in that photo.",
+      message: "We couldn't spot any food in that photo. Try a clearer, well-lit shot from above, or describe the meal instead.",
     };
   }
 

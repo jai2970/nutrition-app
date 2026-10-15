@@ -52,17 +52,28 @@ export async function addFoodEntry(
   return { status: "success", message: `Added ${foodItem.name} to your log.` };
 }
 
-export async function deleteFoodEntry(formData: FormData) {
+export type DeleteEntryResult = { status: "success" | "error"; message: string };
+
+export async function deleteFoodEntry(formData: FormData): Promise<DeleteEntryResult> {
   const entryId = String(formData.get("entryId") ?? "");
-  if (!entryId) return;
+  if (!entryId) {
+    return { status: "error", message: "Couldn't tell which entry to remove." };
+  }
 
   const user = await getCurrentUser();
-  if (!user) return;
+  if (!user) {
+    return { status: "error", message: "Your session expired. Please sign in again." };
+  }
 
   // Scoping the delete to the current user's own entries means a forged
   // entryId for someone else's entry just deletes nothing, rather than
   // requiring a separate ownership check before deleting.
-  await prisma.foodEntry.deleteMany({ where: { id: entryId, userId: user.id } });
+  const { count } = await prisma.foodEntry.deleteMany({ where: { id: entryId, userId: user.id } });
 
   revalidatePath("/dashboard");
+
+  if (count === 0) {
+    return { status: "error", message: "That entry was already removed." };
+  }
+  return { status: "success", message: "Removed from your log." };
 }

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
@@ -24,6 +25,8 @@ import WeeklyTrends from "./WeeklyTrends";
 import LogMealCard from "@/app/log/LogMealCard";
 import MealEntryList from "@/app/log/MealEntryList";
 import DietAdvisorChat from "./DietAdvisorChat";
+
+export const metadata: Metadata = { title: "Today" };
 
 // Nothing here touches a Next.js "dynamic API" (cookies/headers/searchParams),
 // so without this Next would statically prerender the page at build time —
@@ -96,7 +99,7 @@ export default async function TodayPage({
       <div className="w-full max-w-5xl mx-auto px-6 py-8 sm:py-12">
         {updated === "1" && <ProfileUpdatedToast />}
 
-        <div className="grid gap-8 lg:gap-12 lg:grid-cols-2 items-start">
+        <div className="grid grid-cols-1 gap-8 lg:gap-12 lg:grid-cols-2 items-start">
           <div className="flex flex-col gap-8 lg:sticky lg:top-8">
             <Greeting name={user.name} initialGreeting={getGreetingIST()} />
             <ProteinHero

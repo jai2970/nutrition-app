@@ -1,7 +1,16 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/lib/auth";
+import Notice from "@/app/Notice";
 
-export default async function LoginPage() {
+export const metadata: Metadata = { title: "Sign in" };
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const { error, signedOut } = await searchParams;
   const session = await auth();
   if (session?.user) {
     redirect("/dashboard");
@@ -18,6 +27,16 @@ export default async function LoginPage() {
             Track your meals and macros, personalized to you.
           </p>
         </div>
+
+        {error ? (
+          <Notice tone="error" className="w-full text-left">
+            We couldn&apos;t sign you in. Please try again.
+          </Notice>
+        ) : signedOut ? (
+          <Notice tone="success" className="w-full text-left">
+            You&apos;ve been signed out.
+          </Notice>
+        ) : null}
 
         <form
           action={async () => {

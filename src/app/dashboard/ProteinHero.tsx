@@ -120,7 +120,7 @@ export default function ProteinHero({
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3">
+      <div className="mt-3 grid grid-cols-1 gap-3 min-[380px]:grid-cols-2">
         <Chip label="Carbs" macro={carbs} color="var(--macro-carbs)" ink="var(--macro-carbs-ink)" />
         <Chip label="Fat" macro={fat} color="var(--macro-fat)" ink="var(--macro-fat-ink)" />
       </div>

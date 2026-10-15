@@ -12,6 +12,12 @@ import {
 } from "./smartLogActions";
 import { Meal } from "@/generated/prisma/enums";
 import AddEntryForm from "./AddEntryForm";
+import { useToast } from "@/app/Toaster";
+import { shrinkImage } from "@/lib/resize-image";
+
+// Largest photo we'll send as-is when the browser can't shrink it (matches
+// the server-side cap in smartLogActions).
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 type FoodOption = {
   id: string;
@@ -54,8 +60,8 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
   const [isParsingText, setIsParsingText] = useState(false);
   const [isParsingPhoto, setIsParsingPhoto] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isPreparingPhoto, setIsPreparingPhoto] = useState(false);
+  const toast = useToast();
   const [matchedRows, setMatchedRows] = useState<MatchedRow[]>([]);
   const [unmatchedRows, setUnmatchedRows] = useState<UnmatchedRow[]>([]);
   const [addingUnmatchedKeys, setAddingUnmatchedKeys] = useState<Set<string>>(new Set());
@@ -76,7 +82,8 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
   useEffect(() => {
     function updateIndicator() {
       const el = tabRefs.current[activeTab];
-      if (el) setIndicator({ left: el.offsetLeft, width: el.offsetWidth });
+      // The "manual" search view has no tab of its own, so hide the underline.
+      setIndicator(el ? { left: el.offsetLeft, width: el.offsetWidth } : { left: 0, width: 0 });
     }
     updateIndicator();
     window.addEventListener("resize", updateIndicator);
@@ -91,7 +98,7 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
 
   function applyResult(result: ParseMealResult) {
     if (result.status === "error") {
-      setError(result.message);
+      toast.error(result.message);
       setMatchedRows([]);
       setUnmatchedRows([]);
       setHasParsed(false);
@@ -115,32 +122,50 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
   }
 
   async function handleParseText() {
-    setError(null);
-    setSuccessMessage(null);
     setIsParsingText(true);
     try {
       applyResult(await parseMealText(description));
     } catch (err) {
       console.error("Failed to parse meal text:", err);
-      setError("Something went wrong parsing that. Please try again.");
+      toast.error("Something went wrong understanding that meal. Please try again.");
     } finally {
       setIsParsingText(false);
     }
   }
 
-  function setPhotoFromFile(file: File | null) {
-    if (file && !file.type.startsWith("image/")) {
-      setError("Please choose an image file.");
+  async function setPhotoFromFile(file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
       return;
     }
-    setError(null);
+
+    // Shrink big phone photos in the browser first so the upload is small
+    // and fast. If the browser can't decode the image (some HEIC files),
+    // fall back to the original only when it's small enough to send.
+    setIsPreparingPhoto(true);
+    let prepared = file;
+    try {
+      prepared = await shrinkImage(file);
+    } catch (err) {
+      console.error("Couldn't shrink photo:", err);
+      if (file.size > MAX_UPLOAD_BYTES) {
+        toast.error("We couldn't read that photo. Try a different one, or a JPEG or PNG.");
+        setIsPreparingPhoto(false);
+        return;
+      }
+    }
+    setIsPreparingPhoto(false);
+
     if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
-    setPhotoFile(file);
-    setPhotoPreviewUrl(file ? URL.createObjectURL(file) : null);
+    setPhotoFile(prepared);
+    setPhotoPreviewUrl(URL.createObjectURL(prepared));
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setPhotoFromFile(e.target.files?.[0] ?? null);
+    void setPhotoFromFile(e.target.files?.[0] ?? null);
+    // Let the same file be picked again after "Remove photo".
+    e.target.value = "";
   }
 
   function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
@@ -157,13 +182,11 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setIsDraggingOver(false);
-    setPhotoFromFile(e.dataTransfer.files?.[0] ?? null);
+    void setPhotoFromFile(e.dataTransfer.files?.[0] ?? null);
   }
 
   async function handleParsePhoto() {
     if (!photoFile) return;
-    setError(null);
-    setSuccessMessage(null);
     setIsParsingPhoto(true);
     try {
       const formData = new FormData();
@@ -171,13 +194,22 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
       applyResult(await parseMealPhoto(formData));
     } catch (err) {
       console.error("Failed to parse meal photo:", err);
-      const message = err instanceof Error && err.message.includes("Body exceeded")
-        ? "That photo is too large. Try a smaller image."
-        : "Something went wrong reading that photo. Please try again.";
-      setError(message);
+      toast.error(
+        err instanceof Error && err.message.includes("Body exceeded")
+          ? "That photo is too large. Try a smaller image."
+          : "We couldn't read that photo. Please try again, or describe the meal instead.",
+      );
     } finally {
       setIsParsingPhoto(false);
     }
+  }
+
+  function resetInputs() {
+    setDescription("");
+    clearPhoto();
+    setMatchedRows([]);
+    setUnmatchedRows([]);
+    setHasParsed(false);
   }
 
   function clearPhoto() {
@@ -214,7 +246,6 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
   }
 
   async function handleAddUnmatched(row: UnmatchedRow) {
-    setError(null);
     setAddingUnmatchedKeys((keys) => new Set(keys).add(row.key));
     try {
       const result = await logCustomEntry({
@@ -224,13 +255,15 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
         macros: row.estimatedMacros,
       });
       if (result.status === "error") {
-        setError(result.message);
+        toast.error(result.message);
       } else {
         removeUnmatchedRow(row.key);
-        setSuccessMessage(`Added ${row.parsedName} to your log.`);
+        toast.success(`Added ${row.parsedName} to your log.`);
+        // That was the last thing left to review: tidy up the whole panel.
+        if (matchedRows.length === 0 && unmatchedRows.length === 1) resetInputs();
       }
     } catch {
-      setError("Something went wrong adding that item. Please try again.");
+      toast.error("Something went wrong adding that item. Please try again.");
     } finally {
       setAddingUnmatchedKeys((keys) => {
         const next = new Set(keys);
@@ -242,26 +275,28 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
 
   async function handleAdd() {
     if (matchedRows.length === 0) return;
-    setError(null);
     setIsAdding(true);
     try {
       const result = await logParsedItems(
         matchedRows.map((r) => ({ foodItemId: r.food.id, grams: r.grams, meal: r.meal })),
       );
       if (result.status === "error") {
-        setError(result.message);
+        toast.error(result.message);
       } else {
-        setSuccessMessage(
-          `Added ${result.count} item${result.count === 1 ? "" : "s"} to your log.`,
+        const leftToReview = unmatchedRows.length;
+        toast.success(
+          `Added ${result.count} item${result.count === 1 ? "" : "s"} to your log.` +
+            (leftToReview > 0
+              ? ` ${leftToReview} more ${leftToReview === 1 ? "item needs" : "items need"} your review.`
+              : ""),
         );
-        setDescription("");
-        clearPhoto();
         setMatchedRows([]);
-        setUnmatchedRows([]);
-        setHasParsed(false);
+        // Keep any AI-estimated items still waiting for a decision on screen
+        // instead of silently discarding them.
+        if (leftToReview === 0) resetInputs();
       }
     } catch {
-      setError("Something went wrong adding those items. Please try again.");
+      toast.error("Something went wrong adding those items. Please try again.");
     } finally {
       setIsAdding(false);
     }
@@ -293,19 +328,6 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
           style={{ left: indicator.left, width: indicator.width, background: "var(--primary)" }}
         />
       </div>
-
-      {(error || successMessage) && (
-        <div
-          className="rounded-lg px-4 py-2 text-sm font-medium"
-          style={
-            error
-              ? { background: "var(--primary-soft)", color: "var(--primary-ink)" }
-              : { background: "var(--success-soft)", color: "var(--success-ink)" }
-          }
-        >
-          {error ?? successMessage}
-        </div>
-      )}
 
       {activeTab === "photo" && (
         <div className="flex flex-col gap-3 animate-fade-in">
@@ -407,10 +429,14 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
           <button
             type="button"
             onClick={handleParsePhoto}
-            disabled={isParsing || !photoFile}
+            disabled={isParsing || isPreparingPhoto || !photoFile}
             className={`${PRIMARY_BUTTON} h-10 px-5 text-sm`}
           >
-            {isParsingPhoto ? "Identifying..." : "Let's calculate your macros"}
+            {isParsingPhoto
+              ? "Identifying..."
+              : isPreparingPhoto
+                ? "Preparing photo..."
+                : "Let's calculate your macros"}
           </button>
         </div>
       )}
@@ -453,44 +479,51 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
               {matchedRows.map((row) => (
                 <div
                   key={row.key}
-                  className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2"
+                  className="flex flex-col gap-2 rounded-lg border border-border bg-background px-3 py-2"
                 >
-                  <div className="flex-1 text-sm">
-                    <div className="font-medium">{row.food.name}</div>
-                    <div className="text-muted text-xs">
-                      from &ldquo;{row.parsedName}&rdquo; · {row.food.servingLabel}
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1 text-sm">
+                      <div className="font-medium">{row.food.name}</div>
+                      <div className="text-muted text-xs">
+                        from &ldquo;{row.parsedName}&rdquo; · {row.food.servingLabel}
+                      </div>
                     </div>
+                    <span className="whitespace-nowrap pt-0.5 text-xs text-muted tabular-nums">
+                      {Math.round((row.food.caloriesPer100g * row.grams) / 100)} kcal
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeRow(row.key)}
+                      className={REMOVE_BUTTON}
+                      aria-label={`Remove ${row.food.name}`}
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <select
-                    value={row.meal}
-                    onChange={(e) => updateMeal(row.key, e.target.value as Meal)}
-                    className="input w-28 text-sm"
-                  >
-                    {Object.entries(MEAL_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    min={1}
-                    step="1"
-                    value={row.grams}
-                    onChange={(e) => updateGrams(row.key, Number(e.target.value))}
-                    className="input w-20 text-sm"
-                  />
-                  <span className="text-xs text-muted w-16 text-right tabular-nums">
-                    {Math.round((row.food.caloriesPer100g * row.grams) / 100)} kcal
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeRow(row.key)}
-                    className={REMOVE_BUTTON}
-                    aria-label={`Remove ${row.food.name}`}
-                  >
-                    ✕
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={row.meal}
+                      onChange={(e) => updateMeal(row.key, e.target.value as Meal)}
+                      aria-label={`Meal for ${row.food.name}`}
+                      className="input min-w-0 flex-1 text-sm"
+                    >
+                      {Object.entries(MEAL_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      step="1"
+                      value={row.grams}
+                      onChange={(e) => updateGrams(row.key, Number(e.target.value))}
+                      aria-label={`Grams of ${row.food.name}`}
+                      className="input w-20 shrink-0 text-sm"
+                    />
+                    <span className="text-xs text-muted">g</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -626,15 +659,15 @@ function UnmatchedFoodCard({
         </select>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <button
           type="button"
           onClick={onAddAnyway}
           disabled={isAdding}
           className={
             meta.addButtonVariant === "primary"
-              ? `${PRIMARY_BUTTON} h-9 px-4 text-sm`
-              : "self-start rounded-full border font-medium h-9 px-4 text-sm hover:bg-primary-soft active:scale-[0.97] transition-all disabled:opacity-50 disabled:active:scale-100"
+              ? `${PRIMARY_BUTTON} h-9 px-4 text-sm whitespace-nowrap`
+              : "self-start whitespace-nowrap rounded-full border font-medium h-9 px-4 text-sm hover:bg-primary-soft active:scale-[0.97] transition-all disabled:opacity-50 disabled:active:scale-100"
           }
           style={
             meta.addButtonVariant === "outline"
@@ -647,7 +680,7 @@ function UnmatchedFoodCard({
         <button
           type="button"
           onClick={onSearchManually}
-          className="text-sm font-medium text-muted hover:text-foreground"
+          className="text-sm font-medium text-muted hover:text-foreground whitespace-nowrap"
         >
           Search manually
         </button>

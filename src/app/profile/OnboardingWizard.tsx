@@ -1,5 +1,6 @@
 "use client";
 
+import Notice from "@/app/Notice";
 import { useState } from "react";
 import type { ProfileFormState } from "./saveProfile";
 import { ActivityLevel, DietType, Goal, Sex } from "@/generated/prisma/enums";
@@ -59,10 +60,16 @@ export default function OnboardingWizard() {
     formData.set("dietType", value);
     formData.set("goal", goal ?? "");
 
-    const res: ProfileFormState = await fetch("/api/complete-onboarding", {
-      method: "POST",
-      body: formData,
-    }).then((r) => r.json());
+    let res: ProfileFormState;
+    try {
+      const response = await fetch("/api/complete-onboarding", { method: "POST", body: formData });
+      res = await response.json();
+    } catch {
+      res = {
+        status: "error",
+        message: "We couldn't save your profile. Check your connection and try again.",
+      };
+    }
     setIsSaving(false);
     setResult(res);
   }
@@ -117,14 +124,7 @@ export default function OnboardingWizard() {
         </div>
       </div>
 
-      {result?.status === "error" && (
-        <div
-          className="rounded-lg px-4 py-2 text-sm font-medium"
-          style={{ background: "var(--primary-soft)", color: "var(--primary-ink)" }}
-        >
-          {result.message}
-        </div>
-      )}
+      {result?.status === "error" && <Notice tone="error">{result.message}</Notice>}
 
       <div key={step} className={direction === "forward" ? "wizard-step-forward" : "wizard-step-back"}>
         {step === 1 && <StepGoal value={goal} onSelect={selectGoal} />}

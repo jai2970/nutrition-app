@@ -1,5 +1,6 @@
 "use client";
 
+import { useToast } from "@/app/Toaster";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { addFoodEntry, type LogFormState } from "./actions";
 import { Meal } from "@/generated/prisma/enums";
@@ -37,6 +38,7 @@ export default function AddEntryForm({
   const [selectedFood, setSelectedFood] = useState<FoodOption | null>(null);
   const [grams, setGrams] = useState<number | "">("");
   const [meal, setMeal] = useState<Meal>("BREAKFAST");
+  const toast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,6 +55,14 @@ export default function AddEntryForm({
       setMeal("BREAKFAST");
     }
   }
+
+  // Report each finished submission through the shared toaster. This is a
+  // side effect on another component's state, so it belongs in an effect
+  // rather than in the render-time adjustment above.
+  useEffect(() => {
+    if (state.status === "success") toast.success(state.message ?? "Added to your log.");
+    else if (state.status === "error") toast.error(state.message ?? "Couldn't add that. Please try again.");
+  }, [state, toast]);
 
   // Same idea for an incoming "search manually" handoff from the AI tabs: apply
   // the new query during render, keyed off searchSeed.ts so a repeat click on the
@@ -93,19 +103,6 @@ export default function AddEntryForm({
 
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-4">
-      {state.status !== "idle" && (
-        <div
-          className="rounded-lg px-4 py-2 text-sm font-medium"
-          style={
-            state.status === "success"
-              ? { background: "var(--success-soft)", color: "var(--success-ink)" }
-              : { background: "var(--primary-soft)", color: "var(--primary-ink)" }
-          }
-        >
-          {state.message}
-        </div>
-      )}
-
       <input type="hidden" name="foodItemId" value={selectedFood?.id ?? ""} />
 
       <div className="relative">

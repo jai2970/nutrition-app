@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Notice from "@/app/Notice";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -135,14 +136,7 @@ export default function DietAdvisorChat() {
               </div>
             )}
 
-            {error && (
-              <div
-                className="rounded-lg px-3 py-2 text-xs font-medium self-start"
-                style={{ background: "var(--primary-soft)", color: "var(--primary-ink)" }}
-              >
-                {error}
-              </div>
-            )}
+            {error && <Notice tone="error">{error}</Notice>}
           </div>
 
           <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-border p-3 shrink-0">

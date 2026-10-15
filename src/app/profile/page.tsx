@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import { signOut } from "@/lib/auth";
 import { isProfileComplete } from "@/lib/nutrition";
 import ProfileForm from "./ProfileForm";
 import OnboardingWizard from "./OnboardingWizard";
+
+export const metadata: Metadata = { title: "Profile" };
 
 // See dashboard/page.tsx for why this is needed — no dynamic API usage here
 // means Next would otherwise statically prerender the page at build time.
@@ -35,7 +38,7 @@ export default async function ProfilePage() {
       <form
         action={async () => {
           "use server";
-          await signOut({ redirectTo: "/login" });
+          await signOut({ redirectTo: "/login?signedOut=1" });
         }}
         className="mt-8 pt-6 border-t border-border"
       >
