@@ -96,6 +96,31 @@ const OUTPUT_FORMAT_INSTRUCTION =
   "(calories, protein in grams, carbs in grams, fat in grams) for the " +
   "estimated portion size. Use standard Indian nutritional references.";
 
+// Shared by every AI provider: turn the model's raw JSON into validated items.
+export function normalizeParsedItems(parsed: unknown): ParsedMealItem[] {
+  if (!Array.isArray(parsed)) {
+    throw new Error("AI response was not a JSON array.");
+  }
+
+  return parsed
+    .filter(
+      (item): item is { name: string; grams: number; meal?: unknown; confidence?: unknown; estimatedMacros?: unknown } =>
+        typeof (item as ParsedMealItem)?.name === "string" &&
+        (item as ParsedMealItem).name.trim().length > 0 &&
+        typeof (item as ParsedMealItem)?.grams === "number" &&
+        (item as ParsedMealItem).grams > 0,
+    )
+    .map((item) => ({
+      name: item.name.trim(),
+      grams: Math.round(item.grams),
+      confidence: (CONFIDENCE_VALUES as readonly string[]).includes(item.confidence as string)
+        ? (item.confidence as ParsedMealItem["confidence"])
+        : "medium",
+      meal: MEAL_VALUES.includes(item.meal as Meal) ? (item.meal as Meal) : null,
+      estimatedMacros: normalizeMacros(item.estimatedMacros),
+    }));
+}
+
 async function generateParsedItems(contents: PartUnion[]): Promise<ParsedMealItem[]> {
   const ai = getGenAIClient();
 
@@ -113,27 +138,7 @@ async function generateParsedItems(contents: PartUnion[]): Promise<ParsedMealIte
     throw new Error("Gemini returned an empty response.");
   }
 
-  const parsed: unknown = JSON.parse(text);
-  if (!Array.isArray(parsed)) {
-    throw new Error("Gemini response was not a JSON array.");
-  }
-
-  return parsed
-    .filter(
-      (item): item is { name: string; grams: number; meal?: unknown; confidence?: unknown; estimatedMacros?: unknown } =>
-        typeof (item as ParsedMealItem)?.name === "string" &&
-        typeof (item as ParsedMealItem)?.grams === "number" &&
-        (item as ParsedMealItem).grams > 0,
-    )
-    .map((item) => ({
-      name: item.name.trim(),
-      grams: Math.round(item.grams),
-      confidence: (CONFIDENCE_VALUES as readonly string[]).includes(item.confidence as string)
-        ? (item.confidence as ParsedMealItem["confidence"])
-        : "medium",
-      meal: MEAL_VALUES.includes(item.meal as Meal) ? (item.meal as Meal) : null,
-      estimatedMacros: normalizeMacros(item.estimatedMacros),
-    }));
+  return normalizeParsedItems(JSON.parse(text));
 }
 
 function normalizeMacros(value: unknown): EstimatedMacros {
@@ -147,24 +152,49 @@ function normalizeMacros(value: unknown): EstimatedMacros {
   };
 }
 
+// The prompt text is provider-neutral. `outputInstruction` is the only part
+// that differs (Gemini is told to return a bare JSON array; Claude returns an
+// object with an `items` array because structured outputs need an object root).
+export function buildDescriptionPrompt(description: string, outputInstruction: string = OUTPUT_FORMAT_INSTRUCTION): string {
+  return (
+    `${INDIAN_FOOD_CONTEXT}\n\n` +
+    "Parse the following meal description into a list of distinct food " +
+    "items, each with an estimated quantity in grams.\n\n" +
+    `${SERVING_SIZE_REFERENCE}\n\n` +
+    "If the text says or implies which meal an item was eaten at " +
+    '(e.g. "for breakfast", "at dinner", "mid-morning snack"), set its meal to ' +
+    "BREAKFAST, LUNCH, DINNER, or SNACKS accordingly; otherwise omit meal. " +
+    "Combine duplicate mentions of the same food into one entry only if they " +
+    "belong to the same meal (or neither mentions a meal) — keep separate " +
+    "entries for the same food eaten at different meals.\n\n" +
+    `${outputInstruction}\n\n` +
+    `Meal description: "${description}"`
+  );
+}
+
+export function buildImagePrompt(outputInstruction: string = OUTPUT_FORMAT_INSTRUCTION): string {
+  return (
+    `${INDIAN_FOOD_CONTEXT}\n\n` +
+    "Identify each distinct food item visible in this photo of a meal, and " +
+    "estimate how much of each is on the plate in grams, based on what's " +
+    "visible (portion relative to the plate/bowl, apparent thickness/count, " +
+    "etc).\n\n" +
+    `${SERVING_SIZE_REFERENCE}\n\n` +
+    "Indian thalis and plates often contain several small, distinct " +
+    "portions (e.g. a roti, a katori of dal, a katori of sabzi, rice, " +
+    "salad, pickle, papad) — identify each visible item separately rather " +
+    "than describing the whole plate as one dish. Err on the side of " +
+    "listing more items rather than fewer: the user can easily remove an " +
+    "item that was detected incorrectly, but can't add one that was " +
+    "missed entirely.\n\n" +
+    `${outputInstruction}\n\n` +
+    "These are visual estimates from a photo, so approximate is fine. If " +
+    "the photo doesn't contain any food, return an empty list."
+  );
+}
+
 export async function parseMealDescription(description: string): Promise<ParsedMealItem[]> {
-  return generateParsedItems([
-    {
-      text:
-        `${INDIAN_FOOD_CONTEXT}\n\n` +
-        "Parse the following meal description into a list of distinct food " +
-        "items, each with an estimated quantity in grams.\n\n" +
-        `${SERVING_SIZE_REFERENCE}\n\n` +
-        "If the text says or implies which meal an item was eaten at " +
-        '(e.g. "for breakfast", "at dinner", "mid-morning snack"), set its meal to ' +
-        "BREAKFAST, LUNCH, DINNER, or SNACKS accordingly; otherwise omit meal. " +
-        "Combine duplicate mentions of the same food into one entry only if they " +
-        "belong to the same meal (or neither mentions a meal) — keep separate " +
-        "entries for the same food eaten at different meals.\n\n" +
-        `${OUTPUT_FORMAT_INSTRUCTION}\n\n` +
-        `Meal description: "${description}"`,
-    },
-  ]);
+  return generateParsedItems([{ text: buildDescriptionPrompt(description) }]);
 }
 
 export async function parseMealImage(
@@ -172,25 +202,7 @@ export async function parseMealImage(
   mimeType: string,
 ): Promise<ParsedMealItem[]> {
   return generateParsedItems([
-    {
-      text:
-        `${INDIAN_FOOD_CONTEXT}\n\n` +
-        "Identify each distinct food item visible in this photo of a meal, and " +
-        "estimate how much of each is on the plate in grams, based on what's " +
-        "visible (portion relative to the plate/bowl, apparent thickness/count, " +
-        "etc).\n\n" +
-        `${SERVING_SIZE_REFERENCE}\n\n` +
-        "Indian thalis and plates often contain several small, distinct " +
-        "portions (e.g. a roti, a katori of dal, a katori of sabzi, rice, " +
-        "salad, pickle, papad) — identify each visible item separately rather " +
-        "than describing the whole plate as one dish. Err on the side of " +
-        "listing more items rather than fewer: the user can easily remove an " +
-        "item that was detected incorrectly, but can't add one that was " +
-        "missed entirely.\n\n" +
-        `${OUTPUT_FORMAT_INSTRUCTION}\n\n` +
-        "These are visual estimates from a photo, so approximate is fine. If " +
-        "the photo doesn't contain any food, return an empty array.",
-    },
+    { text: buildImagePrompt() },
     { inlineData: { data: base64Data, mimeType } },
   ]);
 }

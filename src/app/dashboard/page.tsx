@@ -35,6 +35,10 @@ export const metadata: Metadata = { title: "Today" };
 // whatever they were during the last deploy.
 export const dynamic = "force-dynamic";
 
+// Meal logging (a server action on this page) calls an AI model; give it room
+// beyond the platform default so a slow answer isn't cut off.
+export const maxDuration = 60;
+
 const MEAL_ORDER: Meal[] = ["BREAKFAST", "LUNCH", "DINNER", "SNACKS"];
 const MEAL_LABELS: Record<Meal, string> = {
   BREAKFAST: "Breakfast",

@@ -3,12 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
-import {
-  parseMealDescription,
-  parseMealImage,
-  type ParsedMealItem,
-  type EstimatedMacros,
-} from "@/lib/gemini";
+import { aiErrorMessage } from "@/lib/ai-errors";
+import { parseMealText as parseMealTextWithAI, parseMealPhoto as parseMealPhotoWithAI } from "@/lib/meal-parser";
+import type { ParsedMealItem, EstimatedMacros } from "@/lib/gemini";
 import { findBestFoodMatch } from "@/lib/food-match";
 import { Meal } from "@/generated/prisma/enums";
 
@@ -74,38 +71,6 @@ async function matchParsedItems(
   return { matched, unmatched };
 }
 
-// Turns a failed Gemini call into a message that says what actually went
-// wrong, so a problem with the key, quota or model is visible in the app
-// instead of hiding behind one generic line. (The full error is also logged
-// on the server by the callers.)
-function geminiErrorMessage(err: unknown): string {
-  if (err instanceof Error && err.message === "GEMINI_API_KEY is not set.") {
-    return "AI meal reading isn't set up: GEMINI_API_KEY is missing on the server.";
-  }
-  const status = typeof (err as { status?: unknown })?.status === "number" ? (err as { status: number }).status : null;
-  const text = err instanceof Error ? err.message : String(err ?? "");
-
-  if (status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(text)) {
-    return "The AI usage limit has been reached (quota). Please try again later.";
-  }
-  if (status === 401 || status === 403 || /API key (not valid|expired)|API_KEY_INVALID|PERMISSION_DENIED/i.test(text)) {
-    return "The AI service rejected the API key. Check GEMINI_API_KEY on the server.";
-  }
-  if (status === 404 || /not found|no longer available|is not supported/i.test(text)) {
-    return "The AI model isn't available any more. The app's model setting needs updating.";
-  }
-  if (status !== null && status >= 500) {
-    return "The AI service is busy right now. Please try again in a moment.";
-  }
-  if (/fetch failed|ENOTFOUND|ECONN|ETIMEDOUT|network/i.test(text)) {
-    return "Couldn't reach the AI service (network error). Please try again.";
-  }
-  if (err instanceof SyntaxError || /not a JSON array|empty response/i.test(text)) {
-    return "The AI returned an answer we couldn't read. Please try again, or rephrase the meal.";
-  }
-  return "The AI helper hit an unexpected error. Please try again in a moment.";
-}
-
 export async function parseMealText(description: string): Promise<ParseMealResult> {
   if (!(await getCurrentUser())) {
     return { status: "error", message: "Please sign in to log a meal." };
@@ -118,10 +83,10 @@ export async function parseMealText(description: string): Promise<ParseMealResul
 
   let parsedItems;
   try {
-    parsedItems = await parseMealDescription(trimmed);
+    parsedItems = await parseMealTextWithAI(trimmed);
   } catch (err) {
-    console.error("Gemini meal text parse failed:", err);
-    return { status: "error", message: geminiErrorMessage(err) };
+    console.error("Meal text parse failed:", err);
+    return { status: "error", message: aiErrorMessage(err) };
   }
 
   if (parsedItems.length === 0) {
@@ -164,10 +129,10 @@ export async function parseMealPhoto(formData: FormData): Promise<ParseMealResul
 
   let parsedItems;
   try {
-    parsedItems = await parseMealImage(base64Data, file.type);
+    parsedItems = await parseMealPhotoWithAI(base64Data, file.type);
   } catch (err) {
-    console.error("Gemini meal photo parse failed:", err);
-    return { status: "error", message: geminiErrorMessage(err) };
+    console.error("Meal photo parse failed:", err);
+    return { status: "error", message: aiErrorMessage(err) };
   }
 
   if (parsedItems.length === 0) {

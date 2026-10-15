@@ -76,8 +76,12 @@ Set up environment variables — `.env`:
 
 ```
 DATABASE_URL=
-GEMINI_API_KEY=
+ANTHROPIC_API_KEY=   # meal logging (photo + text) uses Claude Haiku
+GEMINI_API_KEY=      # optional: fallback if Claude fails; also used by the diet advisor
 ```
+
+Meal parsing tries Claude (`claude-haiku-5-5`, override with `ANTHROPIC_MODEL`) first when
+`ANTHROPIC_API_KEY` is set, and falls back to Gemini if `GEMINI_API_KEY` is set. Either key alone works.
 
 `.env.local`:
 
