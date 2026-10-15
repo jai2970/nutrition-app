@@ -15,6 +15,19 @@ import AddEntryForm from "./AddEntryForm";
 import { useToast } from "@/app/Toaster";
 import { shrinkImage } from "@/lib/resize-image";
 
+// Backstop in case the server action never answers: the server gives up on
+// Gemini after ~30s, so anything slower than this means something is stuck.
+const CLIENT_TIMEOUT_MS = 40_000;
+const BUSY_MESSAGE = "Gemini is busy right now. Try again in a minute.";
+
+function withClientTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("client-timeout")), CLIENT_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 // Largest photo we'll send as-is when the browser can't shrink it (matches
 // the server-side cap in smartLogActions).
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -124,10 +137,14 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
   async function handleParseText() {
     setIsParsingText(true);
     try {
-      applyResult(await parseMealText(description));
+      applyResult(await withClientTimeout(parseMealText(description)));
     } catch (err) {
       console.error("Failed to parse meal text:", err);
-      toast.error("Something went wrong understanding that meal. Please try again.");
+      toast.error(
+        err instanceof Error && err.message === "client-timeout"
+          ? BUSY_MESSAGE
+          : "Something went wrong understanding that meal. Please try again.",
+      );
     } finally {
       setIsParsingText(false);
     }
@@ -191,13 +208,15 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
     try {
       const formData = new FormData();
       formData.set("photo", photoFile);
-      applyResult(await parseMealPhoto(formData));
+      applyResult(await withClientTimeout(parseMealPhoto(formData)));
     } catch (err) {
       console.error("Failed to parse meal photo:", err);
       toast.error(
-        err instanceof Error && err.message.includes("Body exceeded")
-          ? "That photo is too large. Try a smaller image."
-          : "We couldn't read that photo. Please try again, or describe the meal instead.",
+        err instanceof Error && err.message === "client-timeout"
+          ? BUSY_MESSAGE
+          : err instanceof Error && err.message.includes("Body exceeded")
+            ? "That photo is too large. Try a smaller image."
+            : "We couldn't read that photo. Please try again, or describe the meal instead.",
       );
     } finally {
       setIsParsingPhoto(false);

@@ -1,4 +1,4 @@
-import { getGenAIClient } from "@/lib/genai-client";
+import { getGenAIClient, runGeminiCall } from "@/lib/genai-client";
 
 export type FoodMatchCandidate = {
   name: string;
@@ -104,6 +104,7 @@ const MATCH_MODEL = "gemini-flash-latest";
 export async function matchFood<T extends FoodMatchCandidate>(
   detectedItem: string,
   candidates: T[],
+  opts: { deadlineAt?: number } = {},
 ): Promise<T | null> {
   if (candidates.length === 0) return null;
 
@@ -119,12 +120,17 @@ export async function matchFood<T extends FoodMatchCandidate>(
 ${list}`;
 
   try {
-    const ai = getGenAIClient();
-    const response = await ai.models.generateContent({
-      model: MATCH_MODEL,
-      contents: [{ text: prompt }],
-      config: { temperature: 0 },
-    });
+    const response = await runGeminiCall(
+      "food-match",
+      MATCH_MODEL,
+      ({ model, signal }) =>
+        getGenAIClient().models.generateContent({
+          model,
+          contents: [{ text: prompt }],
+          config: { temperature: 0, abortSignal: signal },
+        }),
+      opts,
+    );
     const digits = response.text?.match(/\d+/)?.[0];
     const choice = digits === undefined ? NaN : parseInt(digits, 10);
     if (!Number.isInteger(choice) || choice < 1 || choice > candidates.length) return null;

@@ -11,6 +11,7 @@ import {
 } from "@/lib/gemini";
 import { findBestFoodMatch, matchFood } from "@/lib/food-match";
 import { searchFoods } from "@/lib/food-search";
+import { GeminiBusyError, GEMINI_BUSY_MESSAGE, GEMINI_TOTAL_CEILING_MS } from "@/lib/genai-client";
 import { Meal } from "@/generated/prisma/enums";
 
 export type MatchedItem = {
@@ -43,18 +44,30 @@ type FoodRow = Awaited<ReturnType<typeof prisma.foodItem.findMany>>[number];
 // New matcher: hybrid semantic/text search, then Gemini picks the best
 // candidate. Any failure (embedding, DB, Gemini) just means "no new match" so
 // the old matcher below still gets its say.
-async function semanticMatch(name: string): Promise<FoodRow | null> {
+async function semanticMatch(name: string, deadlineAt: number): Promise<FoodRow | null> {
+  const remaining = deadlineAt - Date.now();
+  if (remaining < 1500) return null; // parsing used up the budget; old matcher only
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const candidates = await searchFoods(name);
-    return await matchFood(name, candidates);
+    // The whole parse + match round trip shares one deadline so the button
+    // never spins past it, even if the embedding request itself hangs.
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), remaining);
+    });
+    const search = (async () => matchFood(name, await searchFoods(name), { deadlineAt }))();
+    search.catch(() => {});
+    return await Promise.race([search, timeout]);
   } catch (err) {
     console.warn("[food-match] semantic match failed:", err instanceof Error ? err.message : err);
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
 async function matchParsedItems(
   parsedItems: ParsedMealItem[],
+  deadlineAt: number,
 ): Promise<{ matched: MatchedItem[]; unmatched: UnmatchedItem[] }> {
   const foods = await prisma.foodItem.findMany();
 
@@ -62,7 +75,7 @@ async function matchParsedItems(
   // something, otherwise the old word-overlap/alias one is the fallback.
   // Each decision is logged so we can compare them over real meals before
   // retiring the old matcher.
-  const semanticMatches = await Promise.all(parsedItems.map((item) => semanticMatch(item.name)));
+  const semanticMatches = await Promise.all(parsedItems.map((item) => semanticMatch(item.name, deadlineAt)));
 
   const matched: MatchedItem[] = [];
   const unmatched: UnmatchedItem[] = [];
@@ -106,6 +119,7 @@ async function matchParsedItems(
 }
 
 function geminiErrorMessage(err: unknown): string {
+  if (err instanceof GeminiBusyError) return GEMINI_BUSY_MESSAGE;
   return err instanceof Error && err.message === "GEMINI_API_KEY is not set."
     ? "AI meal reading isn't available right now."
     : "The AI helper is unavailable right now. Please try again in a moment.";
@@ -121,9 +135,12 @@ export async function parseMealText(description: string): Promise<ParseMealResul
     return { status: "error", message: "Describe what you ate first." };
   }
 
+  // One budget for the whole request (parse + food matching).
+  const deadlineAt = Date.now() + GEMINI_TOTAL_CEILING_MS;
+
   let parsedItems;
   try {
-    parsedItems = await parseMealDescription(trimmed);
+    parsedItems = await parseMealDescription(trimmed, { deadlineAt });
   } catch (err) {
     console.error("Gemini meal text parse failed:", err);
     return { status: "error", message: geminiErrorMessage(err) };
@@ -136,7 +153,7 @@ export async function parseMealText(description: string): Promise<ParseMealResul
     };
   }
 
-  const { matched, unmatched } = await matchParsedItems(parsedItems);
+  const { matched, unmatched } = await matchParsedItems(parsedItems, deadlineAt);
   return { status: "success", matched, unmatched };
 }
 
@@ -167,9 +184,11 @@ export async function parseMealPhoto(formData: FormData): Promise<ParseMealResul
   const arrayBuffer = await file.arrayBuffer();
   const base64Data = Buffer.from(arrayBuffer).toString("base64");
 
+  const deadlineAt = Date.now() + GEMINI_TOTAL_CEILING_MS;
+
   let parsedItems;
   try {
-    parsedItems = await parseMealImage(base64Data, file.type);
+    parsedItems = await parseMealImage(base64Data, file.type, { deadlineAt });
   } catch (err) {
     console.error("Gemini meal photo parse failed:", err);
     return { status: "error", message: geminiErrorMessage(err) };
@@ -182,7 +201,7 @@ export async function parseMealPhoto(formData: FormData): Promise<ParseMealResul
     };
   }
 
-  const { matched, unmatched } = await matchParsedItems(parsedItems);
+  const { matched, unmatched } = await matchParsedItems(parsedItems, deadlineAt);
   return { status: "success", matched, unmatched };
 }
 
