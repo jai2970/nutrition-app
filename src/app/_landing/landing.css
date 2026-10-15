@@ -56,86 +56,102 @@
   max-width: 68rem;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 36px;
-  align-items: center;
+  gap: 40px;
   padding: clamp(24px, 5vw, 64px);
   border-radius: 32px;
   background: var(--macroly-cream);
   color: var(--macroly-green);
 }
+.macroly-top { display: grid; grid-template-columns: 1fr; gap: 32px; align-items: center; }
 @media (min-width: 820px) {
-  .macroly-panel { grid-template-columns: 1.1fr 0.9fr; gap: 56px; }
+  .macroly-top { grid-template-columns: 1.1fr 0.9fr; gap: 56px; }
 }
-.macroly-copy { display: grid; gap: 20px; justify-items: start; }
+.macroly-copy { display: grid; gap: 20px; justify-items: start; min-width: 0; }
 .macroly-h1 {
   margin: 0;
-  font-size: clamp(32px, 8.5vw, 58px);
+  font-size: clamp(36px, 10vw, 64px);
   font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.03em;
-  text-wrap: balance;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
 }
-.macroly-lede { margin: 0; font-size: clamp(16px, 4.2vw, 19px); line-height: 1.5; max-width: 30ch; opacity: 0.8; }
-.macroly-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 56px;
-  padding: 0 32px;
-  border: 0;
+.macroly-lede { margin: 0; font-size: clamp(16px, 4.2vw, 19px); line-height: 1.5; max-width: 32ch; opacity: 0.8; }
+
+/* Coach bubble */
+.macroly-bubble {
+  display: grid;
+  gap: 8px;
+  max-width: 34rem;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border-left: 4px solid var(--macroly-green);
+  background: #fffaf0;
+  box-shadow: 0 6px 18px -10px rgba(11, 59, 42, 0.35);
+}
+.macroly-bubble p { margin: 0; font-size: 15px; line-height: 1.5; }
+.macroly-bubble-tag {
+  justify-self: start;
+  padding: 3px 10px;
   border-radius: 999px;
   background: var(--macroly-green);
   color: var(--macroly-cream);
-  font: 600 17px/1 inherit;
-  font-family: inherit;
-  cursor: pointer;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
-.macroly-cta:hover { opacity: 0.9; }
-.macroly-cta:active { transform: scale(0.97); }
-.macroly-cta:focus-visible { outline: 2px solid var(--macroly-green); outline-offset: 4px; }
 
 /* Phone mockup */
+.macroly-phone-wrap { margin: 0; justify-self: center; width: min(100%, 280px); display: grid; gap: 10px; justify-items: center; }
 .macroly-phone {
-  justify-self: center;
-  width: min(100%, 250px);
-  aspect-ratio: 9 / 17;
+  width: 100%;
+  aspect-ratio: 9 / 18;
   display: flex;
   flex-direction: column;
-  padding: 14px;
+  padding: 8px;
   border-radius: 40px;
   background: #0e1512;
   box-shadow: 0 24px 48px -16px rgba(11, 59, 42, 0.45);
 }
-.macroly-phone-notch { align-self: center; width: 34%; height: 18px; border-radius: 999px; background: #1c2923; margin-bottom: 14px; }
+.macroly-shot { position: relative; flex: 0 0 55%; overflow: hidden; border-radius: 32px 32px 0 0; background: #14573f; }
+.macroly-shot-img { object-fit: cover; }
 .macroly-card {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 18px;
-  border-radius: 26px;
-  background: linear-gradient(160deg, #14573f 0%, #0b3b2a 70%);
+  justify-content: center;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 0 0 32px 32px;
+  background: #0b3b2a;
   color: #fff;
 }
-.macroly-card-tag { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; }
-.macroly-card-name { font-size: 22px; font-weight: 600; line-height: 1.2; }
-.macroly-card-kcal { font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; margin-bottom: 14px; }
-.macroly-card-kcal small { font-size: 16px; font-weight: 500; opacity: 0.75; letter-spacing: 0; }
-.macroly-pills { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.macroly-card-name { font-size: 17px; font-weight: 600; line-height: 1.2; }
+.macroly-card-kcal { font-size: 34px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; margin-bottom: 8px; }
+.macroly-card-kcal small { font-size: 14px; font-weight: 500; opacity: 0.75; letter-spacing: 0; }
+.macroly-pills { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .macroly-pills li {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 12px;
-  border-radius: 14px;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.12);
   font-size: 12px;
 }
 .macroly-pills span { opacity: 0.75; }
-.macroly-pills strong { font-size: 16px; font-weight: 600; }
+.macroly-pills strong { font-size: 14px; font-weight: 600; }
+.macroly-credit { font-size: 11px; color: #7a6c5a; }
+
+/* How it works */
+.macroly-how { display: grid; gap: 20px; padding-top: 32px; border-top: 1px solid rgba(11, 59, 42, 0.15); }
+.macroly-how-title { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; }
+.macroly-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 24px; }
+@media (min-width: 720px) { .macroly-steps { grid-template-columns: repeat(3, 1fr); gap: 32px; } }
+.macroly-steps li { display: grid; gap: 4px; justify-items: start; }
+.macroly-steps li strong { font-size: 18px; font-weight: 700; }
+.macroly-steps li > span:last-child { font-size: 15px; line-height: 1.4; opacity: 0.8; }
+.macroly-step-icon { width: 28px; height: 28px; margin-bottom: 6px; color: var(--macroly-green); }
+.macroly-step-icon svg { width: 100%; height: 100%; display: block; }
 
 /* Pre-font / no-JS version */
 .macroly-static { background: var(--gp-paper); }
