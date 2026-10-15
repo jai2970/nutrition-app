@@ -21,7 +21,7 @@ export default function OpengraphImage() {
         }}
       >
         <svg width="300" height="300" viewBox="0 0 64 64">
-          <rect width="64" height="64" rx="14" fill="#2F9E6B" />
+          <rect width="64" height="64" rx="14" fill="#0B3B2A" />
           <circle cx="29" cy="38" r="14" fill="none" stroke="#fff" strokeWidth="6" />
           <path d="M33 22C36 11 46 7 56 10C53 21 43 25 33 22Z" fill="#fff" />
         </svg>
