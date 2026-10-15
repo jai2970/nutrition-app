@@ -324,8 +324,13 @@ export default function LogMealCard({ foods }: { foods: FoodOption[] }) {
           );
         })}
         <span
-          className="absolute bottom-0 h-0.5 transition-[left,width] duration-200 ease-out"
-          style={{ left: indicator.left, width: indicator.width, background: "var(--primary)" }}
+          className="absolute bottom-0 left-0 h-0.5 w-px origin-left transition-transform duration-200 ease-out motion-reduce:transition-none"
+          style={{
+            // A 1px bar stretched with scaleX and slid with translateX, so the
+            // underline animates with transforms only (not left/width).
+            transform: `translateX(${indicator.left}px) scaleX(${indicator.width})`,
+            background: "var(--primary)",
+          }}
         />
       </div>
 

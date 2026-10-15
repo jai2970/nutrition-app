@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Animates a number toward its new value (400ms ease-out). First paint shows
+// Animates a number toward its new value (700ms ease-out, timed to land with the ring spring). First paint shows
 // the final value so the server and client markup match; later changes —
 // i.e. after logging or deleting a meal — count up/down. Honours
 // prefers-reduced-motion by jumping straight to the target.
-export default function CountUp({ value, duration = 400 }: { value: number; duration?: number }) {
+export default function CountUp({ value, duration = 700 }: { value: number; duration?: number }) {
   const [display, setDisplay] = useState(value);
   const current = useRef(value);
 
