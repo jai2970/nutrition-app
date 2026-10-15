@@ -20,10 +20,20 @@ export function useToast(): ToastApi {
 
 export default function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [leaving, setLeaving] = useState<Set<number>>(new Set());
   const nextId = useRef(0);
 
+  // Fade the toast out first (180ms), then drop it from the list.
   const dismiss = useCallback((id: number) => {
-    setToasts((items) => items.filter((t) => t.id !== id));
+    setLeaving((ids) => new Set(ids).add(id));
+    setTimeout(() => {
+      setToasts((items) => items.filter((t) => t.id !== id));
+      setLeaving((ids) => {
+        const next = new Set(ids);
+        next.delete(id);
+        return next;
+      });
+    }, 180);
   }, []);
 
   const push = useCallback(
@@ -52,7 +62,7 @@ export default function ToastProvider({ children }: { children: ReactNode }) {
         className="pointer-events-none fixed inset-x-0 top-16 z-50 flex flex-col items-center gap-2 px-4"
       >
         {toasts.map((t) => (
-          <div key={t.id} className="pointer-events-auto relative w-full max-w-md shadow-card rounded-xl animate-fade-in">
+          <div key={t.id} className={`pointer-events-auto relative w-full max-w-md shadow-card rounded-xl ${leaving.has(t.id) ? "animate-toast-out" : "animate-fade-in"}`}>
             <Notice tone={t.tone} className="pr-11">
               {t.message}
             </Notice>

@@ -219,41 +219,59 @@ body {
   }
 }
 
-/* Protein ring — draws in from empty on first paint, then eases to each new
-   value when the page re-renders after a log/delete (transition on the
-   dashoffset). --ring-c is the circumference, set inline on the element. */
-@keyframes ring-draw {
+/* Today page motion. Everything here animates opacity or transform only, so
+   it stays on the compositor and is cheap on low-end phones. */
+
+/* Cards enter one after another on first load (--i = position in the
+   sequence). Pure CSS so it runs at first paint without waiting for JS;
+   "backwards" applies the start state during the delay and leaves no
+   lingering transform afterwards. */
+@keyframes card-in {
   from {
-    stroke-dashoffset: var(--ring-c);
+    opacity: 0;
+    transform: translateY(14px);
   }
 }
 
-.ring-progress {
-  animation: ring-draw 800ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  transition: stroke-dashoffset 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+.animate-card-in {
+  animation: card-in 480ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms);
 }
 
-/* Log rows — slide in when added; collapse when removed (see MealEntryList). */
-@keyframes row-in {
+/* Progress bars are full-size fills that slide in from out of view (the
+   track clips them), instead of animating width/height. */
+@keyframes bar-slide-x {
   from {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes bar-slide-y {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+.bar-fill-x {
+  transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: bar-slide-x 800ms cubic-bezier(0.2, 0.8, 0.2, 1) 250ms backwards;
+}
+
+.bar-fill-y {
+  transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: bar-slide-y 700ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+/* Toasts fade out instead of vanishing. */
+@keyframes toast-out {
+  to {
     opacity: 0;
     transform: translateY(-6px);
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
-.animate-row-in {
-  animation: row-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.row-collapse {
-  display: grid;
-  transition:
-    grid-template-rows 180ms ease-out,
-    opacity 180ms ease-out;
+.animate-toast-out {
+  animation: toast-out 180ms ease-in forwards;
 }
 
 /* Week strip tiles fade up in sequence. */
@@ -292,6 +310,16 @@ body {
   animation: chat-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+.day-sheet[open]::backdrop {
+  animation: fade-in 220ms ease-out;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
 @media (max-width: 639px) {
   .day-sheet {
     margin: auto auto 0;
@@ -299,17 +327,24 @@ body {
     max-width: 100vw;
     border-radius: 20px 20px 0 0;
   }
+
+  .day-sheet[open] {
+    animation: sheet-up 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ring-progress,
-  .animate-row-in,
+  .animate-card-in,
   .animate-tile-in,
-  .day-sheet[open] {
+  .animate-toast-out,
+  .bar-fill-x,
+  .bar-fill-y,
+  .day-sheet[open],
+  .day-sheet[open]::backdrop {
     animation: none;
   }
-  .ring-progress,
-  .row-collapse {
+  .bar-fill-x,
+  .bar-fill-y {
     transition: none;
   }
 }
