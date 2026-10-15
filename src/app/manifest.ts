@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Track your meals, protein, calories and macros.",
     start_url: "/dashboard",
     display: "standalone",
-    background_color: "#fbf8f2",
+    background_color: "#f5f0e8",
     theme_color: "#0b3b2a",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },

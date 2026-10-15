@@ -3,11 +3,11 @@
 :root {
   color-scheme: light;
 
-  --background: #fbf8f2;
-  --surface: #ffffff;
+  --background: #f5f0e8;
+  --surface: #faf6ee;
   --foreground: #1b1510;
   --muted: #7a6c5a;
-  --border: #eee6d9;
+  --border: #e4d9c6;
 
   /* Forest green — same as the Macroly landing page (MACROLY wordmark and
      sign-in button): CTAs, active tab, focus ring. */
