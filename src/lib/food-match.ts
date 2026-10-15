@@ -1,3 +1,11 @@
+import { getGenAIClient } from "@/lib/genai-client";
+
+export type FoodMatchCandidate = {
+  name: string;
+  localNames: string | null;
+  caloriesPer100g: number;
+};
+
 export function normalizeFoodName(name: string): string {
   return name
     .toLowerCase()
@@ -82,4 +90,47 @@ export function findBestFoodMatch<T extends { name: string; aliases: string[] }>
   }
 
   return bestScore >= 0.5 ? best : null;
+}
+
+// --- LLM picker over semantic-search candidates ---------------------------
+
+const MATCH_MODEL = "gemini-flash-latest";
+
+/**
+ * Asks Gemini Flash which candidate (from searchFoods) is the closest match
+ * to what the user ate. Returns the winning food, or null when none fits (or
+ * the call fails) so the caller can fall back to AI-estimated macros.
+ */
+export async function matchFood<T extends FoodMatchCandidate>(
+  detectedItem: string,
+  candidates: T[],
+): Promise<T | null> {
+  if (candidates.length === 0) return null;
+
+  const list = candidates
+    .map((c, i) => {
+      const also = c.localNames ? ` (also called: ${c.localNames.slice(0, 120)})` : "";
+      return `${i + 1}. ${c.name}${also} — ${Math.round(c.caloriesPer100g)} kcal/100g`;
+    })
+    .join("\n");
+
+  const prompt = `The user has: "${detectedItem}". Which of these ${candidates.length} foods is the closest match? Some entries are raw, uncooked ingredients (e.g. dry dal or flour) with much higher calories per 100g than the cooked dish a person actually eats — do not pick a raw ingredient for a cooked dish. Reply with just the number 1-${candidates.length}, or 0 if none fit well.
+
+${list}`;
+
+  try {
+    const ai = getGenAIClient();
+    const response = await ai.models.generateContent({
+      model: MATCH_MODEL,
+      contents: [{ text: prompt }],
+      config: { temperature: 0 },
+    });
+    const digits = response.text?.match(/\d+/)?.[0];
+    const choice = digits === undefined ? NaN : parseInt(digits, 10);
+    if (!Number.isInteger(choice) || choice < 1 || choice > candidates.length) return null;
+    return candidates[choice - 1];
+  } catch (err) {
+    console.warn("[food-match] Gemini picker failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }

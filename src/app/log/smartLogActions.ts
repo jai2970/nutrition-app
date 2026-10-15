@@ -9,7 +9,8 @@ import {
   type ParsedMealItem,
   type EstimatedMacros,
 } from "@/lib/gemini";
-import { findBestFoodMatch } from "@/lib/food-match";
+import { findBestFoodMatch, matchFood } from "@/lib/food-match";
+import { searchFoods } from "@/lib/food-search";
 import { Meal } from "@/generated/prisma/enums";
 
 export type MatchedItem = {
@@ -37,16 +38,46 @@ export type ParseMealResult =
   | { status: "success"; matched: MatchedItem[]; unmatched: UnmatchedItem[] }
   | { status: "error"; message: string };
 
+type FoodRow = Awaited<ReturnType<typeof prisma.foodItem.findMany>>[number];
+
+// New matcher: hybrid semantic/text search, then Gemini picks the best
+// candidate. Any failure (embedding, DB, Gemini) just means "no new match" so
+// the old matcher below still gets its say.
+async function semanticMatch(name: string): Promise<FoodRow | null> {
+  try {
+    const candidates = await searchFoods(name);
+    return await matchFood(name, candidates);
+  } catch (err) {
+    console.warn("[food-match] semantic match failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 async function matchParsedItems(
   parsedItems: ParsedMealItem[],
 ): Promise<{ matched: MatchedItem[]; unmatched: UnmatchedItem[] }> {
   const foods = await prisma.foodItem.findMany();
 
+  // Both matchers run for every item; the semantic one wins when it finds
+  // something, otherwise the old word-overlap/alias one is the fallback.
+  // Each decision is logged so we can compare them over real meals before
+  // retiring the old matcher.
+  const semanticMatches = await Promise.all(parsedItems.map((item) => semanticMatch(item.name)));
+
   const matched: MatchedItem[] = [];
   const unmatched: UnmatchedItem[] = [];
 
-  for (const item of parsedItems) {
-    const food = findBestFoodMatch(item.name, foods);
+  parsedItems.forEach((item, i) => {
+    const newMatch = semanticMatches[i];
+    const oldMatch = findBestFoodMatch(item.name, foods);
+    const food = newMatch ?? oldMatch;
+    const winner = newMatch ? "new" : oldMatch ? "old" : "none";
+    console.log(
+      `[food-match] item="${item.name}" new="${newMatch?.name ?? "-"}" old="${oldMatch?.name ?? "-"}" agree=${
+        !!newMatch && newMatch.id === oldMatch?.id
+      } used=${winner}`,
+    );
+
     if (food) {
       matched.push({
         parsedName: item.name,
@@ -69,7 +100,7 @@ async function matchParsedItems(
         estimatedMacros: item.estimatedMacros,
       });
     }
-  }
+  });
 
   return { matched, unmatched };
 }
