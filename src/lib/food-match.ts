@@ -4,7 +4,55 @@ export type FoodMatchCandidate = {
   name: string;
   localNames: string | null;
   caloriesPer100g: number;
+  foodGroup?: string | null;
+  ifctCode?: string | null;
 };
+
+// --- Raw vs cooked ----------------------------------------------------------
+// IFCT values are for the raw / dry ingredient. A cooked bowl of dal is about
+// 2.5x water, so applying 330 kcal/100g to "150 g dal" nearly triples the
+// calories. Meal parsing assumes cooked food (see INDIAN_FOOD_CONTEXT in
+// gemini.ts), so a raw pulse or grain must not be used for a cooked portion.
+const RAW_STAPLE_GROUPS = new Set(["Grain Legumes", "Cereals and Millets"]);
+// Cereal products that are used as-is (flour, flakes, puffs) or whose cooked
+// form is a different dish; they are not "raw grain that gets cooked".
+const NOT_A_COOKED_GRAIN = /flour|atta|flakes|puffed|semolina|vermicelli|tender/i;
+
+export function isRawStaple(food: { name: string; foodGroup?: string | null; ifctCode?: string | null }): boolean {
+  if (!food.ifctCode || !food.foodGroup || !RAW_STAPLE_GROUPS.has(food.foodGroup)) return false;
+  if (food.foodGroup === "Cereals and Millets" && NOT_A_COOKED_GRAIN.test(food.name)) return false;
+  return true;
+}
+
+/** True when the user explicitly means the uncooked ingredient ("raw rice", "dry rajma", "atta"). */
+export function mentionsUncooked(detectedItem: string): boolean {
+  return /\b(raw|dry|dried|uncooked|soaked|sprouted|sprouts|flour|atta|maida|powder)\b/i.test(detectedItem);
+}
+
+/**
+ * Chooses between the semantic match and the old matcher's match, never
+ * returning a raw pulse/grain for a cooked portion. A skipped raw match falls
+ * through to the other matcher, and finally to null (AI-estimated macros).
+ */
+export function pickFood<T extends { name: string; foodGroup?: string | null; ifctCode?: string | null }>(
+  detectedItem: string,
+  semantic: T | null,
+  old: T | null,
+): { food: T | null; used: "new" | "old" | "none"; skippedRaw: boolean } {
+  const allowRaw = mentionsUncooked(detectedItem);
+  let skippedRaw = false;
+  const usable = (f: T | null): f is T => {
+    if (!f) return false;
+    if (!allowRaw && isRawStaple(f)) {
+      skippedRaw = true;
+      return false;
+    }
+    return true;
+  };
+  if (usable(semantic)) return { food: semantic, used: "new", skippedRaw };
+  if (usable(old)) return { food: old, used: "old", skippedRaw };
+  return { food: null, used: "none", skippedRaw };
+}
 
 export function normalizeFoodName(name: string): string {
   return name
@@ -111,7 +159,8 @@ export async function matchFood<T extends FoodMatchCandidate>(
   const list = candidates
     .map((c, i) => {
       const also = c.localNames ? ` (also called: ${c.localNames.slice(0, 120)})` : "";
-      return `${i + 1}. ${c.name}${also} — ${Math.round(c.caloriesPer100g)} kcal/100g`;
+      const raw = isRawStaple(c) ? " [RAW ingredient, not cooked]" : "";
+      return `${i + 1}. ${c.name}${raw}${also} — ${Math.round(c.caloriesPer100g)} kcal/100g`;
     })
     .join("\n");
 

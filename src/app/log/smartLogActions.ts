@@ -2,14 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/current-user";
+import { getCurrentUser, getCurrentUserId } from "@/lib/current-user";
+import { startTimer } from "@/lib/timing";
 import {
   parseMealDescription,
   parseMealImage,
   type ParsedMealItem,
   type EstimatedMacros,
 } from "@/lib/gemini";
-import { findBestFoodMatch, matchFood } from "@/lib/food-match";
+import { findBestFoodMatch, matchFood, pickFood } from "@/lib/food-match";
 import { searchFoods } from "@/lib/food-search";
 import { GeminiBusyError, GEMINI_BUSY_MESSAGE, GEMINI_TOTAL_CEILING_MS } from "@/lib/genai-client";
 import { Meal } from "@/generated/prisma/enums";
@@ -39,7 +40,23 @@ export type ParseMealResult =
   | { status: "success"; matched: MatchedItem[]; unmatched: UnmatchedItem[] }
   | { status: "error"; message: string };
 
-type FoodRow = Awaited<ReturnType<typeof prisma.foodItem.findMany>>[number];
+// Only the columns matching needs — the full table now carries long IFCT
+// regional-name strings for ~620 foods, which is wasted transfer here.
+const MATCHABLE_FOOD_SELECT = {
+  id: true,
+  name: true,
+  aliases: true,
+  servingLabel: true,
+  caloriesPer100g: true,
+  foodGroup: true,
+  ifctCode: true,
+} as const;
+
+type FoodRow = Awaited<ReturnType<typeof loadMatchableFoods>>[number];
+
+function loadMatchableFoods() {
+  return prisma.foodItem.findMany({ select: MATCHABLE_FOOD_SELECT });
+}
 
 // New matcher: hybrid semantic/text search, then Gemini picks the best
 // candidate. Any failure (embedding, DB, Gemini) just means "no new match" so
@@ -68,14 +85,18 @@ async function semanticMatch(name: string, deadlineAt: number): Promise<FoodRow 
 async function matchParsedItems(
   parsedItems: ParsedMealItem[],
   deadlineAt: number,
+  foodsPromise: Promise<FoodRow[]>,
+  timer: ReturnType<typeof startTimer>,
 ): Promise<{ matched: MatchedItem[]; unmatched: UnmatchedItem[] }> {
-  const foods = await prisma.foodItem.findMany();
 
   // Both matchers run for every item; the semantic one wins when it finds
   // something, otherwise the old word-overlap/alias one is the fallback.
   // Each decision is logged so we can compare them over real meals before
   // retiring the old matcher.
-  const semanticMatches = await Promise.all(parsedItems.map((item) => semanticMatch(item.name, deadlineAt)));
+  const [semanticMatches, foods] = await Promise.all([
+    timer.track("match", Promise.all(parsedItems.map((item) => semanticMatch(item.name, deadlineAt)))),
+    foodsPromise,
+  ]);
 
   const matched: MatchedItem[] = [];
   const unmatched: UnmatchedItem[] = [];
@@ -83,12 +104,12 @@ async function matchParsedItems(
   parsedItems.forEach((item, i) => {
     const newMatch = semanticMatches[i];
     const oldMatch = findBestFoodMatch(item.name, foods);
-    const food = newMatch ?? oldMatch;
-    const winner = newMatch ? "new" : oldMatch ? "old" : "none";
+    // Raw pulses/grains (IFCT) are never applied to a cooked portion.
+    const { food, used, skippedRaw } = pickFood(item.name, newMatch, oldMatch);
     console.log(
       `[food-match] item="${item.name}" new="${newMatch?.name ?? "-"}" old="${oldMatch?.name ?? "-"}" agree=${
         !!newMatch && newMatch.id === oldMatch?.id
-      } used=${winner}`,
+      } used=${used}${skippedRaw ? " skippedRaw=true" : ""}`,
     );
 
     if (food) {
@@ -126,7 +147,9 @@ function geminiErrorMessage(err: unknown): string {
 }
 
 export async function parseMealText(description: string): Promise<ParseMealResult> {
-  if (!(await getCurrentUser())) {
+  const timer = startTimer("parse-text");
+  if (!(await timer.track("auth", getCurrentUserId()))) {
+    timer.end();
     return { status: "error", message: "Please sign in to log a meal." };
   }
 
@@ -138,22 +161,30 @@ export async function parseMealText(description: string): Promise<ParseMealResul
   // One budget for the whole request (parse + food matching).
   const deadlineAt = Date.now() + GEMINI_TOTAL_CEILING_MS;
 
+  // The food table doesn't depend on what Gemini says, so load it while
+  // Gemini is thinking instead of after.
+  const foodsPromise = loadMatchableFoods();
+  foodsPromise.catch(() => {});
+
   let parsedItems;
   try {
-    parsedItems = await parseMealDescription(trimmed, { deadlineAt });
+    parsedItems = await timer.track("gemini", parseMealDescription(trimmed, { deadlineAt }));
   } catch (err) {
     console.error("Gemini meal text parse failed:", err);
+    timer.end("failed");
     return { status: "error", message: geminiErrorMessage(err) };
   }
 
   if (parsedItems.length === 0) {
+    timer.end("empty");
     return {
       status: "error",
       message: "We couldn't spot any food in that. Try listing the items, like “2 rotis, dal and curd”.",
     };
   }
 
-  const { matched, unmatched } = await matchParsedItems(parsedItems, deadlineAt);
+  const { matched, unmatched } = await matchParsedItems(parsedItems, deadlineAt, foodsPromise, timer);
+  timer.end(`items=${parsedItems.length}`);
   return { status: "success", matched, unmatched };
 }
 
@@ -161,7 +192,9 @@ const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "imag
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 export async function parseMealPhoto(formData: FormData): Promise<ParseMealResult> {
-  if (!(await getCurrentUser())) {
+  const timer = startTimer("parse-photo");
+  if (!(await timer.track("auth", getCurrentUserId()))) {
+    timer.end();
     return { status: "error", message: "Please sign in to log a meal." };
   }
 
@@ -186,22 +219,28 @@ export async function parseMealPhoto(formData: FormData): Promise<ParseMealResul
 
   const deadlineAt = Date.now() + GEMINI_TOTAL_CEILING_MS;
 
+  const foodsPromise = loadMatchableFoods();
+  foodsPromise.catch(() => {});
+
   let parsedItems;
   try {
-    parsedItems = await parseMealImage(base64Data, file.type, { deadlineAt });
+    parsedItems = await timer.track("gemini", parseMealImage(base64Data, file.type, { deadlineAt }));
   } catch (err) {
     console.error("Gemini meal photo parse failed:", err);
+    timer.end("failed");
     return { status: "error", message: geminiErrorMessage(err) };
   }
 
   if (parsedItems.length === 0) {
+    timer.end("empty");
     return {
       status: "error",
       message: "We couldn't spot any food in that photo. Try a clearer, well-lit shot from above, or describe the meal instead.",
     };
   }
 
-  const { matched, unmatched } = await matchParsedItems(parsedItems, deadlineAt);
+  const { matched, unmatched } = await matchParsedItems(parsedItems, deadlineAt, foodsPromise, timer);
+  timer.end(`items=${parsedItems.length}`);
   return { status: "success", matched, unmatched };
 }
 
@@ -224,15 +263,17 @@ export async function logParsedItems(
     }
   }
 
+  // The ownership/existence check and the user lookup don't depend on each
+  // other.
   const foodItemIds = entries.map((e) => e.foodItemId);
-  const existingCount = await prisma.foodItem.count({
-    where: { id: { in: foodItemIds } },
-  });
+  const [existingCount, user] = await Promise.all([
+    prisma.foodItem.count({ where: { id: { in: foodItemIds } } }),
+    getCurrentUser(),
+  ]);
   if (existingCount !== new Set(foodItemIds).size) {
     return { status: "error", message: "One or more foods no longer exist." };
   }
 
-  const user = await getCurrentUser();
   if (!user) {
     return { status: "error", message: "Please sign in to log a meal." };
   }

@@ -79,11 +79,21 @@ export function calculateTargets(user: CompleteProfile) {
   return { calorieGoal, macroTargets };
 }
 
+// A logged entry only needs the food's name and per-100g macros. Selecting
+// just those keeps the long IFCT regional-name text out of every history row.
+const FOOD_MACRO_SELECT = {
+  name: true,
+  caloriesPer100g: true,
+  proteinPer100g: true,
+  carbsPer100g: true,
+  fatPer100g: true,
+} as const;
+
 export async function getTodaysConsumedMacros(userId: string) {
   const { start, end } = getTodayRange();
   const entries = await prisma.foodEntry.findMany({
     where: { userId, consumedAt: { gte: start, lt: end } },
-    include: { foodItem: true },
+    include: { foodItem: { select: FOOD_MACRO_SELECT } },
     orderBy: { consumedAt: "asc" },
   });
   return { entries, consumed: sumConsumedMacros(entries) };
@@ -148,7 +158,7 @@ export async function getWeeklyHistory(userId: string): Promise<DayHistory[]> {
 
   const entries = await prisma.foodEntry.findMany({
     where: { userId, consumedAt: { gte: rangeStart, lt: rangeEnd } },
-    include: { foodItem: true },
+    include: { foodItem: { select: FOOD_MACRO_SELECT } },
     orderBy: { consumedAt: "asc" },
   });
 
