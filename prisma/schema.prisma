@@ -111,6 +111,20 @@ model FoodItem {
   servingSizeG    Float       @default(100)
   servingLabel    String
   entries         FoodEntry[]
+
+  // IFCT (Indian Food Composition Tables) metadata — null on the original
+  // hand-curated rows. localNames is a free-text list of regional names.
+  ifctCode       String? @unique
+  scientificName String?
+  foodGroup      String?
+  diet           String?
+  localNames     String?
+  fibrePer100g   Float?
+
+  // 768-dim gemini-embedding-001 vector for semantic search (pgvector).
+  // Prisma can't read/write this type, so it's only touched through raw SQL
+  // (see src/lib/food-search.ts and scripts/seed-ifct.ts).
+  embedding Unsupported("vector(768)")?
 }
 
 model FoodEntry {

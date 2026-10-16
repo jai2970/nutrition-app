@@ -1,6 +1,6 @@
 import { Type, type PartUnion } from "@google/genai";
 import { Meal } from "@/generated/prisma/enums";
-import { getGenAIClient } from "@/lib/genai-client";
+import { getGenAIClient, runGeminiCall, type RunGeminiCallOptions } from "@/lib/genai-client";
 
 export type EstimatedMacros = {
   calories: number;
@@ -96,17 +96,26 @@ const OUTPUT_FORMAT_INSTRUCTION =
   "(calories, protein in grams, carbs in grams, fat in grams) for the " +
   "estimated portion size. Use standard Indian nutritional references.";
 
-async function generateParsedItems(contents: PartUnion[]): Promise<ParsedMealItem[]> {
-  const ai = getGenAIClient();
-
-  const response = await ai.models.generateContent({
-    model: "gemini-flash-latest",
-    contents,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: RESPONSE_SCHEMA,
-    },
-  });
+async function generateParsedItems(
+  label: string,
+  contents: PartUnion[],
+  opts: RunGeminiCallOptions,
+): Promise<ParsedMealItem[]> {
+  const response = await runGeminiCall(
+    label,
+    "gemini-flash-latest",
+    ({ model, signal }) =>
+      getGenAIClient().models.generateContent({
+        model,
+        contents,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA,
+          abortSignal: signal,
+        },
+      }),
+    opts,
+  );
 
   const text = response.text;
   if (!text) {
@@ -147,8 +156,11 @@ function normalizeMacros(value: unknown): EstimatedMacros {
   };
 }
 
-export async function parseMealDescription(description: string): Promise<ParsedMealItem[]> {
-  return generateParsedItems([
+export async function parseMealDescription(
+  description: string,
+  opts: RunGeminiCallOptions = {},
+): Promise<ParsedMealItem[]> {
+  return generateParsedItems("meal-text", [
     {
       text:
         `${INDIAN_FOOD_CONTEXT}\n\n` +
@@ -164,14 +176,15 @@ export async function parseMealDescription(description: string): Promise<ParsedM
         `${OUTPUT_FORMAT_INSTRUCTION}\n\n` +
         `Meal description: "${description}"`,
     },
-  ]);
+  ], opts);
 }
 
 export async function parseMealImage(
   base64Data: string,
   mimeType: string,
+  opts: RunGeminiCallOptions = {},
 ): Promise<ParsedMealItem[]> {
-  return generateParsedItems([
+  return generateParsedItems("meal-photo", [
     {
       text:
         `${INDIAN_FOOD_CONTEXT}\n\n` +
@@ -192,5 +205,5 @@ export async function parseMealImage(
         "the photo doesn't contain any food, return an empty array.",
     },
     { inlineData: { data: base64Data, mimeType } },
-  ]);
+  ], opts);
 }

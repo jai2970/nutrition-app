@@ -49,6 +49,10 @@ const MEAL_EMPTY_COPY: Record<Meal, string> = {
   SNACKS: "Snacks count too.",
 };
 
+// Meal parsing runs as a server action on this page and can take up to ~30s
+// (Gemini retries); the platform default would cut it off earlier.
+export const maxDuration = 45;
+
 export default async function TodayPage({
   searchParams,
 }: {

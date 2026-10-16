@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed:embeddings": "tsx scripts/seed-embeddings.ts",
+    "seed:ifct": "tsx scripts/seed-ifct.ts",
+    "test": "node --import tsx --test src/lib/*.test.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
