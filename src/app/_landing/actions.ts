@@ -1,7 +1,7 @@
 "use server";
 
-import { signIn } from "@/lib/auth";
+import { startGoogleSignIn } from "@/lib/start-sign-in";
 
 export async function signInWithGoogle() {
-  await signIn("google", { redirectTo: "/dashboard" });
+  await startGoogleSignIn();
 }
