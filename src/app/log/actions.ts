@@ -28,12 +28,14 @@ export async function addFoodEntry(
     return { status: "error", message: "Pick a meal." };
   }
 
-  const foodItem = await prisma.foodItem.findUnique({ where: { id: foodItemId } });
+  const [foodItem, user] = await Promise.all([
+    prisma.foodItem.findUnique({ where: { id: foodItemId } }),
+    getCurrentUser(),
+  ]);
   if (!foodItem) {
     return { status: "error", message: "That food no longer exists." };
   }
 
-  const user = await getCurrentUser();
   if (!user) {
     return { status: "error", message: "Your session expired. Please sign in again." };
   }
