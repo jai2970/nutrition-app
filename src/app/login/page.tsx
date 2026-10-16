@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { auth, signIn } from "@/lib/auth";
+import { auth } from "@/lib/auth";
+import { startGoogleSignIn } from "@/lib/start-sign-in";
 import Notice from "@/app/Notice";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -40,7 +41,7 @@ export default async function LoginPage({
           <form
             action={async () => {
               "use server";
-              await signIn("google", { redirectTo: "/dashboard" });
+              await startGoogleSignIn();
             }}
             className="w-full"
           >
