@@ -10,11 +10,10 @@ import {
 } from "@/lib/nutrition";
 import {
   calculateTargets,
-  getTodaysConsumedMacros,
   getWeeklyHistory,
-  toHistoryEntry,
 } from "@/lib/daily-summary";
 import { getInsight } from "@/lib/insight";
+import { startTimer } from "@/lib/timing";
 import { Meal } from "@/generated/prisma/enums";
 import ProteinHero from "./ProteinHero";
 import MotionRoot from "./MotionRoot";
@@ -58,7 +57,8 @@ export default async function TodayPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const user = await getCurrentUser();
+  const timer = startTimer("today");
+  const user = await timer.track("auth+user", getCurrentUser());
   // proxy.ts already redirects signed-out visitors before they reach this
   // page — this is a defense-in-depth check for the Server Component itself.
   if (!user) {
@@ -75,14 +75,25 @@ export default async function TodayPage({
   const category = bmiCategory(bmi);
   const { calorieGoal, macroTargets } = calculateTargets(user);
 
-  const [foods, { entries: todaysEntries, consumed }, weekHistory] = await Promise.all([
-    prisma.foodItem.findMany({ orderBy: { name: "asc" } }),
-    getTodaysConsumedMacros(user.id),
-    getWeeklyHistory(user.id),
+  // Independent queries run together. Today's entries are the last day of the
+  // 7-day history, so they come from that one query instead of a second,
+  // identical-range one. The food list is only what the manual-search box
+  // shows (name + serving + calories), not every IFCT column.
+  const [foods, weekHistory] = await Promise.all([
+    timer.track(
+      "foods",
+      prisma.foodItem.findMany({
+        select: { id: true, name: true, servingSizeG: true, servingLabel: true, caloriesPer100g: true },
+        orderBy: { name: "asc" },
+      }),
+    ),
+    timer.track("week", getWeeklyHistory(user.id)),
   ]);
 
+  const today = weekHistory[weekHistory.length - 1];
+  const consumed = today.totals;
   const weeklyTrends = weekHistory.map((d) => ({ date: d.weekday, ...d.totals }));
-  const todaysRows = todaysEntries.map(toHistoryEntry);
+  const todaysRows = today.entries;
   const insight = getInsight({
     protein: consumed.protein,
     proteinTarget: macroTargets.proteinG,
@@ -105,6 +116,8 @@ export default async function TodayPage({
     emptyCopy: MEAL_EMPTY_COPY[meal],
     rows: rowsByMeal[meal],
   }));
+
+  timer.end();
 
   return (
     <>
