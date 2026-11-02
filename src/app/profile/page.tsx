@@ -38,7 +38,7 @@ export default async function ProfilePage() {
       <form
         action={async () => {
           "use server";
-          await signOut({ redirectTo: "/login?signedOut=1" });
+          await signOut({ redirectTo: "/" });
         }}
         className="mt-8 pt-6 border-t border-border"
       >
